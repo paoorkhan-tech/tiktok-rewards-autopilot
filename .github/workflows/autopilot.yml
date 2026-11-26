@@ -1,23 +1,42 @@
-name: Phase 2 - UK/USA TikTok 24/7 Autopilot
+name: Phase 2 - UK/USA TikTok 24/7 Autopilot & WhatsApp Report
 
 on:
   workflow_dispatch:
     inputs:
-      account:
-        description: 'Account to run (acc1 or acc2)'
+      task:
+        description: 'Task to run (acc1, acc2, or whatsapp_report)'
         required: true
-        default: 'acc1'
+        default: 'whatsapp_report'
   schedule:
-    # Account 1 (Relationship Drama): 14:00 & 20:00 UTC (UK/USA Peak)
-    - cron: '0 14,20 * * *'
-    # Account 2 (ASMR Destruction): 16:00 & 22:00 UTC (UK/USA Peak)
-    - cron: '0 16,22 * * *'
+    # Account 1 (@osmaneditsofficial - 10 Videos/Day = 5 Two-Part Stories):
+    # 6:00 PM, 7:15 PM, 8:30 PM, 9:45 PM, 11:00 PM, 12:15 AM, 1:30 AM, 2:45 AM, 4:00 AM, 5:00 AM PKT
+    - cron: '0 13 * * *'
+    - cron: '15 14 * * *'
+    - cron: '30 15 * * *'
+    - cron: '45 16 * * *'
+    - cron: '0 18 * * *'
+    - cron: '15 19 * * *'
+    - cron: '30 20 * * *'
+    - cron: '45 21 * * *'
+    - cron: '0 23 * * *'
+    - cron: '0 0 * * *'
+
+    # Account 2 (ASMR Hydraulic Press - 5 Standalone 30s Videos/Day):
+    # 6:10 PM, 8:40 PM, 11:10 PM, 1:40 AM, 4:10 AM PKT
+    - cron: '10 13 * * *'
+    - cron: '40 15 * * *'
+    - cron: '10 18 * * *'
+    - cron: '40 20 * * *'
+    - cron: '10 23 * * *'
+
+    # Daily WhatsApp Analytics Report at exactly 6:00 AM PKT (01:00 UTC)
+    - cron: '0 1 * * *'
 
 permissions:
   contents: write
 
 jobs:
-  produce-and-publish:
+  run-autopilot-or-report:
     runs-on: ubuntu-latest
     timeout-minutes: 25
 
@@ -36,14 +55,43 @@ jobs:
           python -m pip install --upgrade pip
           pip install requests edge-tts google-genai
 
-      - name: Run TikTok Autopilot
+      - name: Execute Task (Autopilot or WhatsApp Report)
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
           ZERNIO_API_KEY: ${{ secrets.ZERNIO_API_KEY }}
           ZERNIO_ACC1_ID: ${{ secrets.ZERNIO_ACC1_ID }}
           ZERNIO_ACC2_ID: ${{ secrets.ZERNIO_ACC2_ID }}
+          WHAPI_TOKEN: ${{ secrets.WHAPI_TOKEN }}
+          WHATSAPP_PHONE: ${{ secrets.WHATSAPP_PHONE }}
+          TIKTOK_ACC1_USER: ${{ secrets.TIKTOK_ACC1_USER }}
+          TIKTOK_ACC2_USER: ${{ secrets.TIKTOK_ACC2_USER }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
-          TARGET_ACCOUNT: ${{ github.event.inputs.account || ((github.event.schedule == '0 16,22 * * *') && 'acc2' || 'acc1') }}
-        run: python tiktok_autopilot.py
+        run: |
+          TASK="${{ github.event.inputs.task }}"
+          if [ -z "$TASK" ]; then
+            if [ "${{ github.event.schedule }}" = "0 1 * * *" ]; then
+              TASK="whatsapp_report"
+            elif [[ "${{ github.event.schedule }}" == 10\ * ]] || [[ "${{ github.event.schedule }}" == 40\ * ]]; then
+              TASK="acc2"
+            else
+              TASK="acc1"
+            fi
+          fi
+          echo "Running Task: $TASK"
+          if [ "$TASK" = "whatsapp_report" ]; then
+            python daily_report.py
+          else
+            TARGET_ACCOUNT="$TASK" python tiktok_autopilot.py
+          fi
+
+      - name: Persist 2-Part Story State
+        run: |
+          if [ -f story_state.json ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add story_state.json
+            git commit -m "Update Part 1/Part 2 story state" || true
+            git push || true
+          fi
