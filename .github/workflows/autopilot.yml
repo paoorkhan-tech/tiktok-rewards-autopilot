@@ -13,6 +13,9 @@ on:
     # Account 2 (ASMR Destruction): 16:00 & 22:00 UTC (UK/USA Peak)
     - cron: '0 16,22 * * *'
 
+permissions:
+  contents: write
+
 jobs:
   produce-and-publish:
     runs-on: ubuntu-latest
@@ -40,5 +43,7 @@ jobs:
           ZERNIO_API_KEY: ${{ secrets.ZERNIO_API_KEY }}
           ZERNIO_ACC1_ID: ${{ secrets.ZERNIO_ACC1_ID }}
           ZERNIO_ACC2_ID: ${{ secrets.ZERNIO_ACC2_ID }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
           TARGET_ACCOUNT: ${{ github.event.inputs.account || ((github.event.schedule == '0 16,22 * * *') && 'acc2' || 'acc1') }}
         run: python tiktok_autopilot.py
