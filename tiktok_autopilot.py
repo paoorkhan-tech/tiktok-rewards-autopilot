@@ -107,7 +107,6 @@ async def create_voice_and_subtitles(script_text, voice, audio_path, srt_path):
             srt_lines.append(f"{idx}\n{format_srt_time(start_t)} --> {format_srt_time(end_t)}\n{phrase}\n")
             idx += 1
     else:
-        # Fallback timing if boundary metadata is ever omitted
         words = script_text.split()
         step = 0.35
         for i in range(0, len(words), 3):
@@ -167,13 +166,13 @@ def fetch_pixabay_clips(queries, needed_duration):
                         f.write(chunk)
 
             vf = (
-                "scale=1080:1920:force_original_aspect_ratio=increase,"
-                "crop=1080:1920,hflip,setpts=0.95*PTS,"
+                "scale=720:1280:force_original_aspect_ratio=increase,"
+                "crop=720:1280,hflip,setpts=0.95*PTS,"
                 "eq=contrast=1.06:saturation=1.12,fps=30"
             )
             cmd = [
                 ffmpeg_exe, "-y", "-ss", "1", "-t", "2.6", "-i", raw_p,
-                "-an", "-vf", vf, "-c:v", "libx264", "-preset", "veryfast", "-crf", "23", cut_p
+                "-an", "-vf", vf, "-c:v", "libx264", "-preset", "veryfast", "-crf", "24", cut_p
             ]
             subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
             if os.path.exists(cut_p) and os.path.getsize(cut_p) > 10000:
@@ -208,7 +207,7 @@ def render_final_video(cut_files, audio_path, srt_path, final_out):
     cmd = [
         ffmpeg_exe, "-y", "-i", merged_bg, "-i", audio_path,
         "-vf", f"subtitles={srt_path}:force_style='{subtitle_style}'",
-        "-c:v", "libx264", "-preset", "veryfast", "-crf", "22",
+        "-c:v", "libx264", "-preset", "veryfast", "-crf", "24",
         "-c:a", "aac", "-b:a", "128k", "-shortest", final_out
     ]
     res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
@@ -216,20 +215,45 @@ def render_final_video(cut_files, audio_path, srt_path, final_out):
         raise Exception(f"FFmpeg render error: {res.stderr[-800:]}")
 
 
-def upload_to_zernio(video_path, account_id, caption_text):
-    headers = {"Authorization": f"Bearer {ZERNIO_API_KEY}"}
+def host_video_publicly(video_path):
+    # Upload to Catbox.moe (free direct .mp4 URL up to 200MB, bypasses Vercel 4.5MB body limit)
+    try:
+        with open(video_path, "rb") as vf:
+            r = requests.post(
+                "https://catbox.moe/user/api.php",
+                data={"reqtype": "fileupload"},
+                files={"fileToUpload": ("tiktok_video.mp4", vf, "video/mp4")},
+                timeout=120,
+            )
+        if r.status_code == 200 and r.text.strip().startswith("https://"):
+            url = r.text.strip()
+            print("Hosted video URL (Catbox):", url)
+            return url
+    except Exception as e:
+        print("Catbox upload fallback triggered:", e)
+
+    # Fallback: tmpfiles.org direct download link
     with open(video_path, "rb") as vf:
-        media_res = requests.post(
-            "https://zernio.com/api/v1/media",
-            headers=headers,
+        r = requests.post(
+            "https://tmpfiles.org/api/v1/upload",
             files={"file": ("tiktok_video.mp4", vf, "video/mp4")},
             timeout=120,
         )
-    if media_res.status_code not in (200, 201):
-        raise Exception(f"Zernio media upload error ({media_res.status_code}): {media_res.text}")
+    if r.status_code == 200:
+        raw_url = r.json()["data"]["url"]
+        direct_url = raw_url.replace("tmpfiles.org/", "tmpfiles.org/dl/")
+        print("Hosted video URL (tmpfiles):", direct_url)
+        return direct_url
 
-    media_url = media_res.json().get("url") or media_res.json().get("mediaUrl")
+    raise Exception(f"Failed to host video publicly: {r.status_code} {r.text}")
 
+
+def upload_to_zernio(video_path, account_id, caption_text):
+    media_url = host_video_publicly(video_path)
+    headers = {
+        "Authorization": f"Bearer {ZERNIO_API_KEY}",
+        "Content-Type": "application/json",
+    }
     payload = {
         "content": caption_text,
         "mediaItems": [{"type": "video", "url": media_url}],
@@ -238,7 +262,7 @@ def upload_to_zernio(video_path, account_id, caption_text):
     }
     post_res = requests.post(
         "https://zernio.com/api/v1/posts",
-        headers={**headers, "Content-Type": "application/json"},
+        headers=headers,
         json=payload,
         timeout=60,
     )
