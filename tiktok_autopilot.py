@@ -6,7 +6,6 @@ import asyncio
 import requests
 import subprocess
 import edge_tts
-import imageio_ffmpeg
 from google import genai
 from google.genai import types
 
@@ -17,7 +16,7 @@ ZERNIO_ACC1_ID = os.environ["ZERNIO_ACC1_ID"]
 ZERNIO_ACC2_ID = os.environ["ZERNIO_ACC2_ID"]
 
 client = genai.Client(api_key=GEMINI_API_KEY)
-ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+ffmpeg_exe = "ffmpeg"
 
 NICHES = {
     "acc1": {
@@ -29,9 +28,9 @@ NICHES = {
         "prompt": (
             "Write a viral, high-retention 72-second Reddit-style relationship or psychology drama story "
             "for TikTok UK/USA Creator Rewards. Start immediately in sentence 1 with a shocking confession "
-            "or discovery hook (NO intro, NO 'hey guys'). Build tension fast with twists and end on a "
-            "gripping cliffhanger or thought-provoking question. Target length: 165 to 185 spoken words "
-            "(strictly over 62 seconds when read aloud). Return ONLY valid JSON with keys: "
+            "or discovery hook (NO intro, NO 'hey guys'). Build tension fast with multiple twists and end on a "
+            "gripping cliffhanger or thought-provoking question. IMPORTANT: Write between 205 and 230 spoken words "
+            "so the voiceover strictly exceeds 64 seconds. Return ONLY valid JSON with keys: "
             "'title' (catchy 60-char caption) and 'script' (clean spoken narration only, no stage directions)."
         ),
     },
@@ -42,12 +41,12 @@ NICHES = {
         "video_queries": ["hydraulic press", "crushing glass", "slow motion explosion", "metal melting"],
         "hashtags": ["#satisfying", "#asmr", "#hydraulicpress", "#oddlysatisfying"],
         "prompt": (
-            "Write a 68-second high-tension sensory commentary script for a satisfying destruction / hydraulic "
+            "Write a 70-second high-tension sensory commentary script for a satisfying destruction / hydraulic "
             "press TikTok video targeting UK/USA audiences. Start in the first 3 seconds with a bold outcome "
             "prediction question ('Will a 100-ton hydraulic press vaporize solid tungsten or shatter the steel plate?'). "
             "Describe the extreme pressure, sound, and suspense leading to the final payoff, and ask viewers to comment "
-            "their guess. Target length: 155 to 175 spoken words (strictly over 62 seconds). Return ONLY valid JSON "
-            "with keys: 'title' (catchy 60-char caption) and 'script' (clean spoken narration only)."
+            "their guess. IMPORTANT: Write between 200 and 225 spoken words so the voiceover strictly exceeds 64 seconds. "
+            "Return ONLY valid JSON with keys: 'title' (catchy 60-char caption) and 'script' (clean spoken narration only)."
         ),
     },
 }
@@ -61,7 +60,17 @@ def generate_script(niche_cfg):
                 contents=niche_cfg["prompt"],
                 config=types.GenerateContentConfig(response_mime_type="application/json"),
             )
-            return json.loads(res.text)
+            data = json.loads(res.text)
+            words = data["script"].split()
+            # Ensure minimum ~200 words so duration always clears 62s+ for Creator Rewards
+            if len(words) < 190:
+                data["script"] += (
+                    " Looking back at everything that happened that night, I still cannot believe how quickly "
+                    "one small secret unraveled years of trust. Everyone involved had a completely different version "
+                    "of the truth, yet the evidence was staring right at us the entire time. What would you have "
+                    "done if you were standing in my shoes right then? Drop your honest thoughts in the comments below."
+                )
+            return data
         except Exception as e:
             print(f"{model_name} error: {e}")
             time.sleep(3)
@@ -77,7 +86,7 @@ def format_srt_time(seconds):
 
 
 async def create_voice_and_subtitles(script_text, voice, audio_path, srt_path):
-    communicate = edge_tts.Communicate(script_text, voice, rate="+4%")
+    communicate = edge_tts.Communicate(script_text, voice, rate="+0%")
     word_events = []
     with open(audio_path, "wb") as f:
         async for chunk in communicate.stream():
@@ -183,7 +192,7 @@ def render_final_video(cut_files, audio_path, srt_path, final_out):
     )
 
     subtitle_style = (
-        "FontName=Arial,FontSize=18,PrimaryColour=&H0000FFFF,"
+        "FontName=DejaVu Sans,FontSize=18,PrimaryColour=&H0000FFFF,"
         "OutlineColour=&H00000000,BorderStyle=1,Outline=2,Shadow=2,Alignment=10"
     )
     cmd = [
@@ -192,7 +201,9 @@ def render_final_video(cut_files, audio_path, srt_path, final_out):
         "-c:v", "libx264", "-preset", "veryfast", "-crf", "22",
         "-c:a", "aac", "-b:a", "128k", "-shortest", final_out
     ]
-    subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+    res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    if res.returncode != 0:
+        raise Exception(f"FFmpeg render error: {res.stderr[-800:]}")
 
 
 def upload_to_zernio(video_path, account_id, caption_text):
