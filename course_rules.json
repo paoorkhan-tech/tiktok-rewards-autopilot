@@ -1,0 +1,142 @@
+{
+  "eligibility_rules": {
+    "target_regions": [
+      "USA",
+      "UK"
+    ],
+    "minimum_video_duration_seconds": 60,
+    "recommended_video_duration_seconds": {
+      "min": 65,
+      "max": 80
+    },
+    "min_followers": 10000,
+    "min_views_30d": 100000,
+    "min_age": 18,
+    "originality_requirements": {
+      "mirror_video": true,
+      "clip_speed_multiplier": 1.05,
+      "max_clip_length_seconds": 3.0,
+      "unique_audio_overlay_required": true,
+      "text_overlay_required": true
+    }
+  },
+  "niches": [
+    {
+      "id": "reddit_drama_psychology",
+      "name": "Relationship & Psychology Drama",
+      "rpm_range": "$0.80 - $1.50",
+      "target_duration_seconds": 72,
+      "script_prompt_template": "Rewrite the following story into a high-retention TikTok script. Structure: Hook (0-3s, highly intriguing, no introduction), Body (fast pacing, building suspense), Climax, and subtle Cliffhanger/CTA. Ensure spoken length exceeds 65 seconds. Story: {raw_story}",
+      "visual_style": "Split-screen / Background B-roll (Kinetic sand, Parkour, ASMR)",
+      "hook_formula": "Shocking confession or discovery statement within first 3 seconds.",
+      "voiceover_settings": {
+        "provider": "ElevenLabs",
+        "voice_id": "21m00Tcm4TlvDq8ikWAM",
+        "stability": 0.5,
+        "similarity_boost": 0.75
+      },
+      "caption_style": {
+        "position": "center",
+        "font_size": "bold_large",
+        "color": "yellow_white",
+        "stroke": "black_shadow",
+        "words_per_line": 2
+      },
+      "posting_schedule_utc": [
+        "14:00",
+        "20:00"
+      ]
+    },
+    {
+      "id": "asmr_satisfying_destruction",
+      "name": "ASMR & Experimental Destruction",
+      "rpm_range": "$0.50 - $0.90",
+      "target_duration_seconds": 68,
+      "script_prompt_template": "Write a 65-second sensory commentary script for a video demonstrating {destruction_object} being compressed by a hydraulic press. Emphasize tension, outcome prediction, and crisp visual callouts.",
+      "visual_style": "Macro HD slow-motion video cuts, kinetic sand slicing, soap crushing",
+      "hook_formula": "Visual payoff tease + outcome question in first 3 seconds.",
+      "voiceover_settings": {
+        "provider": "ElevenLabs",
+        "voice_id": "ErXwobaYiN019PkySvjV",
+        "stability": 0.35,
+        "similarity_boost": 0.85
+      },
+      "caption_style": {
+        "position": "bottom_third",
+        "font_size": "medium_bold",
+        "color": "white",
+        "stroke": "black_shadow",
+        "words_per_line": 4
+      },
+      "posting_schedule_utc": [
+        "16:00",
+        "22:00"
+      ]
+    },
+    {
+      "id": "cleaning_restoration_lifestyle",
+      "name": "Home Cleaning & Restoration",
+      "rpm_range": "$0.70 - $1.20",
+      "target_duration_seconds": 75,
+      "script_prompt_template": "Create a fast-paced transformation story script for a deep-cleaning/restoration video of {cleaning_subject}. Target length: 70 seconds. Use step-by-step progress framing.",
+      "visual_style": "Fast micro-cuts (1.5s-2.5s per cut), high brightness, before-and-after reveals",
+      "hook_formula": "Before/After split screen + extreme condition statement.",
+      "voiceover_settings": {
+        "provider": "ElevenLabs",
+        "voice_id": "EXAVITQu4vr4xnSDxMaL",
+        "stability": 0.55,
+        "similarity_boost": 0.75
+      },
+      "caption_style": {
+        "position": "center",
+        "font_size": "bold_large",
+        "color": "cyan_white",
+        "stroke": "black_shadow",
+        "words_per_line": 3
+      },
+      "posting_schedule_utc": [
+        "18:00"
+      ]
+    }
+  ],
+  "video_duration_rules": {
+    "absolute_minimum_seconds": 61,
+    "target_seconds_min": 65,
+    "target_seconds_max": 80,
+    "seamless_loop_enabled": true
+  },
+  "hashtag_rules": {
+    "hashtags_per_post": 4,
+    "rotation_enabled": true,
+    "forbidden_practices": [
+      "do_not_repeat_identical_hashtags_every_post",
+      "do_not_use_generic_fyp_hashtags_only"
+    ],
+    "niche_hashtags": {
+      "reddit_drama_psychology": [
+        "#storytime",
+        "#redditstories",
+        "#relationshipadvice",
+        "#drama"
+      ],
+      "asmr_satisfying_destruction": [
+        "#satisfying",
+        "#asmr",
+        "#hydraulicpress",
+        "#oddlysatisfying"
+      ],
+      "cleaning_restoration_lifestyle": [
+        "#cleanwithme",
+        "#restock",
+        "#satisfyingcleans",
+        "#deepclean"
+      ]
+    }
+  },
+  "shadowban_prevention": {
+    "account_warmup_hours": 48,
+    "max_posts_per_day_per_account": 3,
+    "proxy_enforcement": "strict_residential_only",
+    "low_view_action": "do_not_delete_immediately_wait_24h_and_rotate_format"
+  }
+}
