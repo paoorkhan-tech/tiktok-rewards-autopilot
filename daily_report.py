@@ -13,56 +13,87 @@ ZERNIO_API_KEY = os.environ.get("ZERNIO_API_KEY", "")
 PKT_TZ = timezone(timedelta(hours=5))
 
 
-def extract_videos_from_json(obj, found_map):
-    """Recursively finds TikTok video objects containing id, createTime, and stats.playCount."""
+def fetch_zernio_post_history():
+    """Fetches exact published posts and timestamps from Zernio API grouped by TikTok username."""
+    history = {ACC1_USER.lower(): [], ACC2_USER.lower(): []}
+    if not ZERNIO_API_KEY:
+        return history
+    try:
+        r = requests.get(
+            "https://zernio.com/api/v1/posts?limit=100",
+            headers={"Authorization": f"Bearer {ZERNIO_API_KEY}"},
+            timeout=25,
+        )
+        if r.status_code == 200:
+            posts = r.json().get("posts", [])
+            for p in posts:
+                if p.get("status") not in ("published", "partial"):
+                    continue
+                content = re.sub(r"#\S+", "", p.get("content", "")).strip()
+                pub_time_str = p.get("publishedAt") or p.get("scheduledFor") or p.get("createdAt")
+                dt_pkt = None
+                if pub_time_str:
+                    try:
+                        dt_utc = datetime.fromisoformat(pub_time_str.replace("Z", "+00:00"))
+                        dt_pkt = dt_utc.astimezone(PKT_TZ)
+                    except Exception:
+                        pass
+
+                for plat in p.get("platforms", []):
+                    if plat.get("platform") == "tiktok" and plat.get("status") == "published":
+                        acc_obj = plat.get("accountId", {})
+                        uname = ""
+                        if isinstance(acc_obj, dict):
+                            uname = str(acc_obj.get("username", "")).lower().lstrip("@")
+                        if uname in history:
+                            history[uname].append({
+                                "title": content,
+                                "dt_pkt": dt_pkt,
+                                "ts": dt_pkt.timestamp() if dt_pkt else 0,
+                                "views": None,
+                            })
+    except Exception as e:
+        print("Zernio history fetch warning:", e)
+
+    for uname in history:
+        history[uname].sort(key=lambda x: x["ts"])
+    return history
+
+
+def extract_videos_recursive(obj, found_list):
     if isinstance(obj, dict):
         vid_id = obj.get("id")
         create_time = obj.get("createTime")
         stats = obj.get("stats")
-        if (
-            vid_id
-            and str(vid_id).isdigit()
-            and create_time
-            and isinstance(stats, dict)
-            and "playCount" in stats
-        ):
+        if vid_id and str(vid_id).isdigit() and create_time and isinstance(stats, dict) and "playCount" in stats:
             try:
                 ts = int(create_time)
-                views = int(stats.get("playCount", 0))
-                likes = int(stats.get("diggCount", 0))
-                desc = str(obj.get("desc", "")).strip()
                 if ts > 1600000000:
-                    found_map[str(vid_id)] = {
+                    found_list.append({
                         "id": str(vid_id),
-                        "create_time": ts,
-                        "views": views,
-                        "likes": likes,
-                        "desc": desc,
-                    }
+                        "ts": ts,
+                        "views": int(stats.get("playCount", 0)),
+                        "desc": re.sub(r"#\S+", "", str(obj.get("desc", ""))).strip(),
+                    })
             except Exception:
                 pass
         for v in obj.values():
-            extract_videos_from_json(v, found_map)
+            extract_videos_recursive(v, found_list)
     elif isinstance(obj, list):
         for item in obj:
-            extract_videos_from_json(item, found_map)
+            extract_videos_recursive(item, found_list)
 
 
-def fetch_public_tiktok_profile(username):
+def fetch_tiktok_public_data(username):
     url = f"https://www.tiktok.com/@{username}"
     headers = {
         "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+            "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36"
         ),
         "Accept-Language": "en-GB,en;q=0.9",
     }
-    stats_out = {
-        "followers": "0",
-        "likes": "0",
-        "videos": "0",
-        "posts": [],
-    }
+    data = {"followers": "0", "likes": "0", "videos": "0", "scraped_posts": []}
     try:
         r = requests.get(url, headers=headers, timeout=25)
         html = r.text
@@ -70,61 +101,84 @@ def fetch_public_tiktok_profile(username):
         followers = re.search(r'"followerCount"\s*:\s*(\d+)', html)
         hearts = re.search(r'"heartCount"\s*:\s*(\d+)', html)
         videos = re.search(r'"videoCount"\s*:\s*(\d+)', html)
+        sec_uid_m = re.search(r'"secUid"\s*:\s*"([^"]+)"', html)
 
         if followers:
-            stats_out["followers"] = f"{int(followers.group(1)):,}"
+            data["followers"] = f"{int(followers.group(1)):,}"
         if hearts:
-            stats_out["likes"] = f"{int(hearts.group(1)):,}"
+            data["likes"] = f"{int(hearts.group(1)):,}"
         if videos:
-            stats_out["videos"] = f"{int(videos.group(1)):,}"
+            data["videos"] = f"{int(videos.group(1)):,}"
 
-        found_videos = {}
+        found = []
         for script_id in ("__UNIVERSAL_DATA_FOR_REHYDRATION__", "SIGI_STATE"):
-            m = re.search(
-                rf'<script[^>]*id="{script_id}"[^>]*>(.*?)</script>',
-                html,
-                re.DOTALL,
-            )
+            m = re.search(rf'<script[^>]*id="{script_id}"[^>]*>(.*?)</script>', html, re.DOTALL)
             if m:
                 try:
-                    parsed = json.loads(m.group(1))
-                    extract_videos_from_json(parsed, found_videos)
+                    extract_videos_recursive(json.loads(m.group(1)), found)
                 except Exception:
                     pass
 
-        # Sort oldest -> newest so Post 1 is first uploaded, Post 2 is second, etc.
-        sorted_posts = sorted(found_videos.values(), key=lambda x: x["create_time"])
-        stats_out["posts"] = sorted_posts
+        # Fallback: Try public item_list endpoint if secUid found & HTML had no items
+        if not found and sec_uid_m:
+            try:
+                api_url = (
+                    f"https://www.tiktok.com/api/post/item_list/?aid=1988&count=30"
+                    f"&secUid={sec_uid_m.group(1)}&cursor=0"
+                )
+                ar = requests.get(api_url, headers=headers, timeout=15)
+                if ar.status_code == 200 and ar.text.strip():
+                    extract_videos_recursive(ar.json(), found)
+            except Exception:
+                pass
+
+        # Deduplicate & sort oldest -> newest
+        unique_map = {item["id"]: item for item in found}
+        data["scraped_posts"] = sorted(unique_map.values(), key=lambda x: x["ts"])
     except Exception as e:
-        print(f"Profile fetch warning for @{username}: {e}")
+        print(f"TikTok scrape warning for @{username}: {e}")
 
-    return stats_out
+    return data
 
 
-def format_account_section(label, username, data):
+def format_account_section(label, username, tk_data, zernio_posts):
     lines = [
         f"*{label} (@{username})*",
-        f"Followers: *{data['followers']}*  |  Likes: *{data['likes']}*  |  Videos: *{data['videos']}*",
+        f"Followers: *{tk_data['followers']}*  |  Total Likes: *{tk_data['likes']}*  |  Videos: *{tk_data['videos']}*",
         "",
     ]
-    posts = data.get("posts", [])
-    if posts:
-        lines.append("*Posts Performance (Oldest to Latest):*")
-        for idx, p in enumerate(posts, start=1):
-            dt_pkt = datetime.fromtimestamp(p["create_time"], tz=PKT_TZ)
-            uploaded_str = dt_pkt.strftime("%d %b, %I:%M %p PKT")
-            views_str = f"{p['views']:,}"
-            # Short clean title preview (max 28 chars without hashtags)
-            clean_title = re.sub(r"#\S+", "", p.get("desc", "")).strip()
-            short_title = (clean_title[:28] + "...") if len(clean_title) > 28 else clean_title
-            title_part = f" — _{short_title}_" if short_title else ""
-            lines.append(
-                f"  *Post {idx}:* *{views_str} Views* ({uploaded_str}){title_part}"
-            )
-    else:
-        lines.append("  _No public post metrics parsed yet (check profile link below)_")
 
-    lines.append(f"Link: https://www.tiktok.com/@{username}")
+    scraped = tk_data.get("scraped_posts", [])
+
+    # Merge Zernio exact timestamps with TikTok view counts
+    merged_posts = []
+    if scraped:
+        for i, sp in enumerate(scraped):
+            dt_pkt = datetime.fromtimestamp(sp["ts"], tz=PKT_TZ)
+            merged_posts.append({
+                "uploaded": dt_pkt.strftime("%d %b, %I:%M %p PKT"),
+                "views": f"{sp['views']:,} Views",
+                "title": sp["desc"],
+            })
+    elif zernio_posts:
+        for zp in zernio_posts:
+            up_str = zp["dt_pkt"].strftime("%d %b, %I:%M %p PKT") if zp["dt_pkt"] else "Uploaded"
+            merged_posts.append({
+                "uploaded": up_str,
+                "views": "Live on FYP",
+                "title": zp["title"],
+            })
+
+    if merged_posts:
+        lines.append("*Posts Breakdown (Post 1 to Latest):*")
+        for idx, post in enumerate(merged_posts, start=1):
+            short_t = (post["title"][:26] + "...") if len(post["title"]) > 26 else post["title"]
+            t_label = f" — _{short_t}_" if short_t else ""
+            lines.append(f"  *Post {idx}:* *{post['views']}* | {post['uploaded']}{t_label}")
+    else:
+        lines.append("  _Posts syncing — check live profile below_")
+
+    lines.append(f"Profile: https://www.tiktok.com/@{username}")
     return "\n".join(lines)
 
 
@@ -133,11 +187,12 @@ def send_whatsapp_report():
     date_str = now_pkt.strftime("%d %b %Y (%A)")
     time_str = now_pkt.strftime("%I:%M %p PKT")
 
-    acc1_data = fetch_public_tiktok_profile(ACC1_USER)
-    acc2_data = fetch_public_tiktok_profile(ACC2_USER)
+    zernio_history = fetch_zernio_post_history()
+    acc1_tk = fetch_tiktok_public_data(ACC1_USER)
+    acc2_tk = fetch_tiktok_public_data(ACC2_USER)
 
-    sec1 = format_account_section("1. ACCOUNT 1", ACC1_USER, acc1_data)
-    sec2 = format_account_section("2. ACCOUNT 2", ACC2_USER, acc2_data)
+    sec1 = format_account_section("1. ACCOUNT 1", ACC1_USER, acc1_tk, zernio_history.get(ACC1_USER.lower(), []))
+    sec2 = format_account_section("2. ACCOUNT 2", ACC2_USER, acc2_tk, zernio_history.get(ACC2_USER.lower(), []))
 
     report_msg = (
         f"*TIKTOK UK/USA ANALYTICS REPORT*\n"
@@ -148,7 +203,7 @@ def send_whatsapp_report():
         f"------------------------------------\n\n"
         f"{sec2}\n\n"
         f"====================================\n"
-        f"_Auto-Schedule: Active (UK/USA Peak Hours)_"
+        f"_Next Auto-Report: 6:00 AM PKT_"
     )
 
     chat_id = f"{WHATSAPP_PHONE}@s.whatsapp.net"
@@ -164,7 +219,7 @@ def send_whatsapp_report():
     print("Whapi response:", res.status_code, res.text)
     if res.status_code not in (200, 201):
         raise Exception(f"WhatsApp report send failed ({res.status_code}): {res.text}")
-    print("Upgraded WhatsApp report sent successfully!")
+    print("Final hybrid WhatsApp report sent successfully!")
 
 
 if __name__ == "__main__":
