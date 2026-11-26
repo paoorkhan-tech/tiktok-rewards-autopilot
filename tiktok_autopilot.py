@@ -53,7 +53,7 @@ NICHES = {
 
 
 def generate_script(niche_cfg):
-    for model_name in ["gemini-3.5-flash", "gemini-3.8-flash", "gemini-3.1-flash-lite"]:
+    for model_name in ["gemini-3.1-flash-lite", "gemini-3.5-flash", "gemini-3.8-flash"]:
         try:
             res = client.models.generate_content(
                 model=model_name,
@@ -62,7 +62,6 @@ def generate_script(niche_cfg):
             )
             data = json.loads(res.text)
             words = data["script"].split()
-            # Ensure minimum ~200 words so duration always clears 62s+ for Creator Rewards
             if len(words) < 190:
                 data["script"] += (
                     " Looking back at everything that happened that night, I still cannot believe how quickly "
@@ -73,7 +72,7 @@ def generate_script(niche_cfg):
             return data
         except Exception as e:
             print(f"{model_name} error: {e}")
-            time.sleep(3)
+            time.sleep(2)
     raise Exception("Failed to generate script from Gemini.")
 
 
@@ -86,26 +85,37 @@ def format_srt_time(seconds):
 
 
 async def create_voice_and_subtitles(script_text, voice, audio_path, srt_path):
-    communicate = edge_tts.Communicate(script_text, voice, rate="+0%")
+    communicate = edge_tts.Communicate(script_text, voice, rate="+0%", boundary="WordBoundary")
     word_events = []
     with open(audio_path, "wb") as f:
         async for chunk in communicate.stream():
             if chunk["type"] == "audio":
                 f.write(chunk["data"])
-            elif chunk["type"] == "WordBoundary":
+            elif chunk["type"] in ("WordBoundary", "SentenceBoundary"):
                 start_s = chunk["offset"] / 10_000_000
                 dur_s = chunk["duration"] / 10_000_000
                 word_events.append((start_s, start_s + dur_s, chunk["text"]))
 
     srt_lines = []
     idx = 1
-    for i in range(0, len(word_events), 3):
-        group = word_events[i : i + 3]
-        start_t = group[0][0]
-        end_t = group[-1][1]
-        phrase = " ".join(w[2] for w in group).upper()
-        srt_lines.append(f"{idx}\n{format_srt_time(start_t)} --> {format_srt_time(end_t)}\n{phrase}\n")
-        idx += 1
+    if word_events:
+        for i in range(0, len(word_events), 3):
+            group = word_events[i : i + 3]
+            start_t = group[0][0]
+            end_t = group[-1][1]
+            phrase = " ".join(w[2] for w in group).upper()
+            srt_lines.append(f"{idx}\n{format_srt_time(start_t)} --> {format_srt_time(end_t)}\n{phrase}\n")
+            idx += 1
+    else:
+        # Fallback timing if boundary metadata is ever omitted
+        words = script_text.split()
+        step = 0.35
+        for i in range(0, len(words), 3):
+            start_t = (i / 3) * (step * 3)
+            end_t = start_t + (step * 3)
+            phrase = " ".join(words[i : i + 3]).upper()
+            srt_lines.append(f"{idx}\n{format_srt_time(start_t)} --> {format_srt_time(end_t)}\n{phrase}\n")
+            idx += 1
 
     with open(srt_path, "w", encoding="utf-8") as f:
         f.write("\n".join(srt_lines))
