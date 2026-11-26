@@ -1,0 +1,40 @@
+name: Phase 1 - TikTok Course Analyzer
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  analyze-course:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install gdown google-genai imageio-ffmpeg
+
+      - name: Run Course Analyzer
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          COURSE_DRIVE_URL: ${{ secrets.COURSE_DRIVE_URL }}
+        run: python course_analyzer.py
+
+      - name: Save Blueprint & Rules to Repo
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add REQUIREMENTS.md course_rules.json
+          git commit -m "Generated TikTok Course Blueprint & Requirements"
+          git push
