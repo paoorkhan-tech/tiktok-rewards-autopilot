@@ -4,6 +4,7 @@ import json
 import time
 import random
 import asyncio
+import urllib.parse
 import requests
 import subprocess
 import edge_tts
@@ -20,63 +21,121 @@ GITHUB_REPOSITORY = os.environ["GITHUB_REPOSITORY"]
 
 client = genai.Client(api_key=GEMINI_API_KEY)
 ffmpeg_exe = "ffmpeg"
+STATE_FILE = "story_state.json"
 
 NICHES = {
     "acc1": {
         "account_id": ZERNIO_ACC1_ID,
-        "name": "Relationship & Psychology Drama",
+        "name": "Relationship & Psychology Drama (30s 2-Part Curiosity Series)",
+        "mode": "story_2part_30s",
         "voices": ["en-US-AndrewNeural", "en-US-GuyNeural", "en-US-ChristopherNeural", "en-GB-RyanNeural"],
-        "video_queries": ["satisfying slime", "soap cutting", "abstract colorful liquid", "sand art"],
-        "hashtags": ["#storytime", "#redditstories", "#relationshipadvice", "#drama"],
-        "prompt": (
-            "Write a viral, high-retention 72-second Reddit-style relationship or psychology drama story "
-            "for TikTok UK/USA Creator Rewards. Start immediately in sentence 1 with a shocking confession "
-            "or discovery hook (NO intro, NO 'hey guys'). Build tension fast with multiple twists and end on a "
-            "gripping cliffhanger or thought-provoking question. IMPORTANT: Write between 215 and 240 spoken words "
-            "so the voiceover strictly exceeds 65 seconds. Return ONLY valid JSON with keys: "
-            "'title' (catchy 60-char caption) and 'script' (clean spoken narration only, no stage directions)."
-        ),
+        "hashtags": ["#storytime", "#redditstories", "#psychology", "#plottwist"],
     },
     "acc2": {
         "account_id": ZERNIO_ACC2_ID,
-        "name": "ASMR & Experimental Destruction",
+        "name": "ASMR & Hydraulic Press Destruction (30s Exact Real Match)",
+        "mode": "real_matched_30s",
         "voices": ["en-GB-RyanNeural", "en-US-AndrewNeural", "en-US-GuyNeural", "en-GB-ThomasNeural"],
-        "video_queries": ["hydraulic press", "crushing glass", "slow motion explosion", "metal melting"],
+        "primary_queries": ["hydraulic press", "crushing object", "metal press", "glass crushing"],
         "hashtags": ["#satisfying", "#asmr", "#hydraulicpress", "#oddlysatisfying"],
-        "prompt": (
-            "Write a 70-second high-tension sensory commentary script for a satisfying destruction / hydraulic "
-            "press TikTok video targeting UK/USA audiences. Start in the first 3 seconds with a bold outcome "
-            "prediction question ('Will a 100-ton hydraulic press vaporize solid tungsten or shatter the steel plate?'). "
-            "Describe the extreme pressure, sound, and suspense leading to the final payoff, and ask viewers to comment "
-            "their guess. IMPORTANT: Write between 210 and 235 spoken words so the voiceover strictly exceeds 65 seconds. "
-            "Return ONLY valid JSON with keys: 'title' (catchy 60-char caption) and 'script' (clean spoken narration only)."
-        ),
     },
 }
 
 
-def generate_script(niche_cfg):
+def load_story_state():
+    if os.path.exists(STATE_FILE):
+        try:
+            with open(STATE_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {"pending_part2": None}
+
+
+def save_story_state(state):
+    with open(STATE_FILE, "w", encoding="utf-8") as f:
+        json.dump(state, f, indent=2)
+
+
+def call_gemini_json(prompt_text):
     for model_name in ["gemini-3.1-flash-lite", "gemini-3.5-flash", "gemini-3.8-flash"]:
         try:
             res = client.models.generate_content(
                 model=model_name,
-                contents=niche_cfg["prompt"],
+                contents=prompt_text,
                 config=types.GenerateContentConfig(response_mime_type="application/json"),
             )
-            data = json.loads(res.text)
-            words = data["script"].split()
-            if len(words) < 200:
-                data["script"] += (
-                    " Looking back at everything that happened that night, I still cannot believe how quickly "
-                    "one small secret unraveled years of trust. Everyone involved had a completely different version "
-                    "of the truth, yet the evidence was staring right at us the entire time. What would you have "
-                    "done if you were standing in my shoes right then? Drop your honest thoughts in the comments below."
-                )
-            return data
+            return json.loads(res.text)
         except Exception as e:
             print(f"{model_name} error: {e}")
             time.sleep(2)
     raise Exception("Failed to generate script from Gemini.")
+
+
+def generate_acc1_2part_script():
+    state = load_story_state()
+    pending = state.get("pending_part2")
+
+    if pending:
+        print("=== Generating PART 2 of ongoing cliffhanger story ===")
+        prompt_text = (
+            f"You are writing PART 2 (the thrilling conclusion) of a viral 2-part TikTok story.\n"
+            f"Story Premise: {pending['premise']}\n"
+            f"Part 1 ended on this exact cliffhanger: {pending['cliffhanger']}\n\n"
+            "Write a high-retention ~30-second PART 2 script for UK/USA audiences. "
+            "Start immediately with 'Part 2:' and reveal the shocking twist that resolves the cliffhanger. "
+            "Make both sides slightly relatable/debatable and end with a strong polarizing question that sparks "
+            "comments and profile follows ('Who was actually wrong here? Comment your verdict—and follow for tonight's new story!'). "
+            "IMPORTANT: Write strictly between 95 and 112 spoken words so the voiceover is ~30 seconds. "
+            "Return ONLY valid JSON with keys: "
+            "'title' (catchy Part 2 caption max 60 chars), "
+            "'script' (clean spoken narration only), "
+            "'ai_intro_scenes' (array of 3 photorealistic vertical 9:16 image prompts depicting the shocking Part 2 reveal in the first 15s), and "
+            "'pixabay_queries' (array of 3 mood-matched stock video search terms for the second half)."
+        )
+        data = call_gemini_json(prompt_text)
+        state["pending_part2"] = None
+        save_story_state(state)
+        return data, "Part 2"
+    else:
+        print("=== Generating PART 1 of new 2-part curiosity story ===")
+        prompt_text = (
+            "Write PART 1 of a viral, high-retention 2-part Reddit-style relationship or psychology drama story "
+            "for UK/USA TikTok audiences. Start immediately in sentence 1 with a jaw-dropping confession or discovery "
+            "hook (NO intro, NO 'hey guys'). Build unbearable curiosity in 25 seconds, then STOP right at the peak "
+            "climax before the secret is revealed, ending with: 'What was inside changed everything—Part 2 drops next, "
+            "follow right now so you don't miss the ending!' "
+            "IMPORTANT: Write strictly between 95 and 112 spoken words so the voiceover is ~30 seconds. "
+            "Return ONLY valid JSON with keys: "
+            "'title' (catchy Part 1 caption max 60 chars), "
+            "'script' (clean spoken narration only), "
+            "'story_premise' (2-sentence summary of the full secret/twist so Part 2 can continue seamlessly), "
+            "'cliffhanger_line' (the exact ending cliffhanger sentence), "
+            "'ai_intro_scenes' (array of 3 photorealistic vertical 9:16 image prompts depicting the opening hook in the first 15s), and "
+            "'pixabay_queries' (array of 3 mood-matched stock video search terms for the second half)."
+        )
+        data = call_gemini_json(prompt_text)
+        state["pending_part2"] = {
+            "premise": data.get("story_premise", data["script"]),
+            "cliffhanger": data.get("cliffhanger_line", data["script"][-140:]),
+        }
+        save_story_state(state)
+        return data, "Part 1"
+
+
+def generate_acc2_script(matched_tags):
+    prompt_text = (
+        f"We have authentic, real hydraulic press / crushing video footage showing: '{matched_tags}'. "
+        "Write a high-retention 30-second standalone sensory commentary script for UK/USA TikTok viewers "
+        "that matches this EXACT real footage from second 1 to second 30. "
+        "Start in the first 3 seconds with a bold 99% vs 1% prediction hook ('99% of people think this object "
+        "will survive 150 tons—watch what happens at second 25!'). Describe the exact weight, density, and extreme "
+        "pressure building up on screen so every word matches the real footage. End with a viewer challenge: "
+        "'Comment the toughest object we should crush next—most liked comment gets tested tomorrow, follow to see!' "
+        "IMPORTANT: Write strictly between 95 and 112 spoken words so the voiceover is ~30 seconds. "
+        "Return ONLY valid JSON with keys: 'title' (catchy 60-char caption) and 'script' (clean spoken narration only)."
+    )
+    return call_gemini_json(prompt_text)
 
 
 def format_srt_time(seconds):
@@ -98,7 +157,7 @@ async def create_voice_and_subtitles(script_text, voices, audio_path, srt_path):
         for attempt in range(2):
             try:
                 word_events = []
-                communicate = edge_tts.Communicate(clean_text, voice, rate="+0%", boundary="WordBoundary")
+                communicate = edge_tts.Communicate(clean_text, voice, rate="+4%", boundary="WordBoundary")
                 with open(audio_path, "wb") as f:
                     async for chunk in communicate.stream():
                         if chunk["type"] == "audio":
@@ -107,7 +166,7 @@ async def create_voice_and_subtitles(script_text, voices, audio_path, srt_path):
                             start_s = chunk["offset"] / 10_000_000
                             dur_s = chunk["duration"] / 10_000_000
                             word_events.append((start_s, start_s + dur_s, chunk["text"]))
-                if os.path.exists(audio_path) and os.path.getsize(audio_path) > 5000:
+                if os.path.exists(audio_path) and os.path.getsize(audio_path) > 4000:
                     print(f"Voiceover generated using {voice}")
                     success = True
                     break
@@ -132,7 +191,7 @@ async def create_voice_and_subtitles(script_text, voices, audio_path, srt_path):
             idx += 1
     else:
         words = clean_text.split()
-        step = 0.35
+        step = 0.32
         for i in range(0, len(words), 3):
             start_t = (i / 3) * (step * 3)
             end_t = start_t + (step * 3)
@@ -152,11 +211,50 @@ def get_audio_duration(audio_path):
             t_str = line.split("Duration:")[1].split(",")[0].strip()
             h, m, s = t_str.split(":")
             return int(h) * 3600 + int(m) * 60 + float(s)
-    return 66.0
+    return 30.0
 
 
-def fetch_pixabay_clips(queries, needed_duration):
-    clip_urls = []
+def generate_ai_intro_clips(ai_scenes, count=3):
+    os.makedirs("temp_clips", exist_ok=True)
+    ai_cut_files = []
+    for i, scene_prompt in enumerate(ai_scenes[:count]):
+        img_p = f"temp_clips/ai_story_{i}.jpg"
+        vid_p = f"temp_clips/ai_story_{i}.mp4"
+        full_prompt = (
+            f"{scene_prompt}, cinematic dramatic lighting, photorealistic, 8k, emotional storytelling, vertical 9:16"
+        )
+        encoded = urllib.parse.quote(full_prompt)
+        seed = random.randint(1000, 999999)
+        url = f"https://image.pollinations.ai/prompt/{encoded}?width=720&height=1280&nologo=true&seed={seed}"
+        try:
+            r = requests.get(url, timeout=45)
+            if r.status_code == 200 and len(r.content) > 5000:
+                with open(img_p, "wb") as f:
+                    f.write(r.content)
+                vf = (
+                    "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,"
+                    "zoompan=z='min(zoom+0.0012,1.15)':d=150:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=1080x1920,"
+                    "eq=contrast=1.06:saturation=1.12,fps=30"
+                )
+                cmd = [
+                    ffmpeg_exe, "-y", "-loop", "1", "-i", img_p,
+                    "-t", "5", "-an", "-vf", vf,
+                    "-c:v", "libx264", "-preset", "veryfast", "-crf", "23", vid_p
+                ]
+                subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+                if os.path.exists(vid_p) and os.path.getsize(vid_p) > 10000:
+                    ai_cut_files.append(vid_p)
+                    print(f"Generated AI intro scene {i + 1}/{count} (5.0s)")
+        except Exception as e:
+            print(f"AI intro scene {i + 1} skipped: {e}")
+        finally:
+            if os.path.exists(img_p):
+                os.remove(img_p)
+    return ai_cut_files
+
+
+def search_pixabay_hits(queries):
+    hits_list = []
     for q in queries:
         r = requests.get(
             "https://pixabay.com/api/videos/",
@@ -168,42 +266,57 @@ def fetch_pixabay_clips(queries, needed_duration):
                 vids = hit.get("videos", {})
                 medium = vids.get("medium") or vids.get("small") or vids.get("large")
                 if medium and medium.get("url"):
-                    clip_urls.append(medium["url"])
+                    hits_list.append({
+                        "url": medium["url"],
+                        "tags": hit.get("tags", q),
+                        "duration": hit.get("duration", 10),
+                    })
+    if not hits_list:
+        r = requests.get(
+            "https://pixabay.com/api/videos/",
+            params={"key": PIXABAY_API_KEY, "q": "satisfying abstract", "per_page": 15},
+            timeout=20,
+        )
+        for hit in r.json().get("hits", []):
+            vids = hit.get("videos", {})
+            medium = vids.get("medium") or vids.get("small")
+            if medium and medium.get("url"):
+                hits_list.append({"url": medium["url"], "tags": hit.get("tags", "satisfying"), "duration": 10})
+    return hits_list
 
-    if not clip_urls:
-        raise Exception("No video clips returned from Pixabay! Check your PIXABAY_API_KEY.")
 
-    random.shuffle(clip_urls)
+def build_micro_cuts(clip_urls, needed_duration, prefix="cut", clip_len=2.6):
     os.makedirs("temp_clips", exist_ok=True)
     cut_files = []
     total_acc = 0.0
     idx = 0
 
-    while total_acc < needed_duration + 2.0:
+    while total_acc < needed_duration:
         url = clip_urls[idx % len(clip_urls)]
-        raw_p = f"temp_clips/raw_{idx}.mp4"
-        cut_p = f"temp_clips/cut_{idx}.mp4"
+        raw_p = f"temp_clips/raw_{prefix}_{idx}.mp4"
+        cut_p = f"temp_clips/{prefix}_{idx}.mp4"
         try:
             with requests.get(url, stream=True, timeout=25) as resp:
                 with open(raw_p, "wb") as f:
                     for chunk in resp.iter_content(chunk_size=65536):
                         f.write(chunk)
 
+            ss_offset = (idx // max(1, len(clip_urls))) * 2
             vf = (
                 "scale=1080:1920:force_original_aspect_ratio=increase,"
                 "crop=1080:1920,hflip,setpts=0.95*PTS,"
                 "eq=contrast=1.06:saturation=1.12,fps=30"
             )
             cmd = [
-                ffmpeg_exe, "-y", "-ss", "1", "-t", "2.6", "-i", raw_p,
+                ffmpeg_exe, "-y", "-ss", str(ss_offset), "-t", str(clip_len), "-i", raw_p,
                 "-an", "-vf", vf, "-c:v", "libx264", "-preset", "veryfast", "-crf", "23", cut_p
             ]
             subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
             if os.path.exists(cut_p) and os.path.getsize(cut_p) > 10000:
                 cut_files.append(cut_p)
-                total_acc += 2.5
+                total_acc += (clip_len - 0.1)
         except Exception as e:
-            print(f"Clip {idx} skip: {e}")
+            print(f"Clip {prefix}_{idx} skip: {e}")
         finally:
             if os.path.exists(raw_p):
                 os.remove(raw_p)
@@ -225,7 +338,7 @@ def render_final_video(cut_files, audio_path, srt_path, final_out):
     )
 
     subtitle_style = (
-        "FontName=DejaVu Sans,FontSize=18,PrimaryColour=&H0000FFFF,"
+        "FontName=DejaVu Sans,FontSize=19,PrimaryColour=&H0000FFFF,"
         "OutlineColour=&H00000000,BorderStyle=1,Outline=2,Shadow=2,Alignment=10"
     )
     cmd = [
@@ -250,6 +363,12 @@ def host_video_on_github_release(video_path):
 
     if rel_res.status_code == 200:
         release = rel_res.json()
+        for old_asset in release.get("assets", [])[:-4]:
+            requests.delete(
+                f"https://api.github.com/repos/{GITHUB_REPOSITORY}/releases/assets/{old_asset['id']}",
+                headers=gh_headers,
+                timeout=15,
+            )
     else:
         create_res = requests.post(
             f"https://api.github.com/repos/{GITHUB_REPOSITORY}/releases",
@@ -315,21 +434,61 @@ def upload_to_zernio(video_path, account_id, caption_text):
 def run_for_account(niche_key):
     cfg = NICHES[niche_key]
     print(f"=== Running Autopilot for {cfg['name']} ===")
-    data = generate_script(cfg)
-    script_text = data["script"]
-    tags = " ".join(cfg["hashtags"])
-    caption = f"{data['title']} {tags}"
 
     audio_path = f"{niche_key}_voice.mp3"
     srt_path = f"{niche_key}_subs.srt"
     final_video = f"{niche_key}_final.mp4"
 
-    asyncio.run(create_voice_and_subtitles(script_text, cfg["voices"], audio_path, srt_path))
-    dur = get_audio_duration(audio_path)
-    print(f"Generated voiceover duration: {dur:.1f}s")
+    if cfg.get("mode") == "real_matched_30s":
+        # Account 2: 30s standalone video with 100% real matched hydraulic press footage
+        primary_hits = search_pixabay_hits(cfg["primary_queries"])
+        hero_hit = random.choice(primary_hits)
+        matched_tags = hero_hit["tags"]
+        print(f"Selected Real Hydraulic Press Footage Tags: '{matched_tags}'")
 
-    clips = fetch_pixabay_clips(cfg["video_queries"], dur)
-    render_final_video(clips, audio_path, srt_path, final_video)
+        data = generate_acc2_script(matched_tags)
+        script_text = data["script"]
+        tags = " ".join(cfg["hashtags"])
+        caption = f"{data['title']} {tags}"
+
+        asyncio.run(create_voice_and_subtitles(script_text, cfg["voices"], audio_path, srt_path))
+        dur = get_audio_duration(audio_path)
+        print(f"Generated voiceover duration: {dur:.1f}s")
+
+        hero_urls = [hero_hit["url"]] + [
+            h["url"] for h in primary_hits if h["url"] != hero_hit["url"]
+        ][:3]
+        all_clips = build_micro_cuts(hero_urls, needed_duration=dur + 2.0, prefix="real30", clip_len=3.0)
+    else:
+        # Account 1: 30s 2-Part Curiosity Story (15s AI story intro + 15s mood-matched B-roll)
+        data, part_label = generate_acc1_2part_script()
+        script_text = data["script"]
+        tags = " ".join(cfg["hashtags"])
+        caption = f"[{part_label}] {data['title']} {tags}"
+
+        asyncio.run(create_voice_and_subtitles(script_text, cfg["voices"], audio_path, srt_path))
+        dur = get_audio_duration(audio_path)
+        print(f"Generated {part_label} voiceover duration: {dur:.1f}s")
+
+        ai_scenes = data.get("ai_intro_scenes") or [
+            "Shocked person staring at a glowing smartphone screen in a dark bedroom at midnight",
+            "Close up of a hidden secret envelope found inside an old wooden drawer, dramatic lighting",
+            "Two silhouettes standing apart in a rainy city street at night, tense emotional atmosphere",
+        ]
+        ai_intro_clips = generate_ai_intro_clips(ai_scenes, count=3)
+        ai_seconds = len(ai_intro_clips) * 5.0
+
+        matched_queries = data.get("pixabay_queries") or ["rain on window night", "city night drive", "clock ticking"]
+        print(f"Mood-matched B-Roll queries: {matched_queries}")
+        broll_hits = search_pixabay_hits(matched_queries)
+        broll_urls = [h["url"] for h in broll_hits]
+        random.shuffle(broll_urls)
+
+        remaining_dur = max(16.0, dur - ai_seconds + 2.0)
+        matched_broll_clips = build_micro_cuts(broll_urls, needed_duration=remaining_dur, prefix="storybroll", clip_len=2.6)
+        all_clips = ai_intro_clips + matched_broll_clips
+
+    render_final_video(all_clips, audio_path, srt_path, final_video)
     upload_to_zernio(final_video, cfg["account_id"], caption)
 
 
