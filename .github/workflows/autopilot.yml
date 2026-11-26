@@ -49,13 +49,12 @@ jobs:
         with:
           python-version: '3.11'
 
-      - - name: Install system FFmpeg and Python dependencies
+      - name: Install system FFmpeg and Python dependencies
         run: |
           sudo apt-get update && sudo apt-get install -y ffmpeg
           python -m pip install --upgrade pip
           pip install requests edge-tts google-genai playwright
           playwright install chromium
-
       - name: Execute Task (Autopilot or WhatsApp Report)
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
