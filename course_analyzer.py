@@ -16,6 +16,13 @@ client = genai.Client(api_key=GEMINI_API_KEY)
 ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
 
 
+def normalize_drive_url(url):
+    match = re.search(r"/file/d/([a-zA-Z0-9_-]+)", url)
+    if match:
+        return f"https://drive.google.com/uc?id={match.group(1)}"
+    return url
+
+
 def download_course_videos(drive_input):
     os.makedirs("course_videos", exist_ok=True)
     links = [u.strip() for u in drive_input.split(",") if u.strip()]
@@ -25,7 +32,8 @@ def download_course_videos(drive_input):
         if "/folders/" in link:
             gdown.download_folder(url=link, output="course_videos", quiet=False, use_cookies=False)
         else:
-            gdown.download(url=link, output=f"course_videos/video_{idx + 1}.mp4", quiet=False, fuzzy=True)
+            clean_url = normalize_drive_url(link)
+            gdown.download(clean_url, f"course_videos/video_{idx + 1}.mp4", quiet=False)
 
     video_exts = ("*.mp4", "*.mkv", "*.mov", "*.avi", "*.webm")
     files = []
@@ -37,7 +45,6 @@ def download_course_videos(drive_input):
 def extract_compressed_audio(video_path, index):
     audio_out = f"course_audio_{index}.mp3"
     print(f"Extracting lightweight audio from {os.path.basename(video_path)}...")
-    # 16kHz mono 24kbps shrinks 4-hour video into ~40MB MP3 for fast Gemini upload
     cmd = [
         ffmpeg_exe, "-y", "-i", video_path,
         "-vn", "-ac", "1", "-ar", "16000", "-b:a", "24k",
