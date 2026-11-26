@@ -14,6 +14,8 @@ PIXABAY_API_KEY = os.environ["PIXABAY_API_KEY"]
 ZERNIO_API_KEY = os.environ["ZERNIO_API_KEY"]
 ZERNIO_ACC1_ID = os.environ["ZERNIO_ACC1_ID"]
 ZERNIO_ACC2_ID = os.environ["ZERNIO_ACC2_ID"]
+GITHUB_TOKEN = os.environ["GITHUB_TOKEN"]
+GITHUB_REPOSITORY = os.environ["GITHUB_REPOSITORY"]
 
 client = genai.Client(api_key=GEMINI_API_KEY)
 ffmpeg_exe = "ffmpeg"
@@ -29,8 +31,8 @@ NICHES = {
             "Write a viral, high-retention 72-second Reddit-style relationship or psychology drama story "
             "for TikTok UK/USA Creator Rewards. Start immediately in sentence 1 with a shocking confession "
             "or discovery hook (NO intro, NO 'hey guys'). Build tension fast with multiple twists and end on a "
-            "gripping cliffhanger or thought-provoking question. IMPORTANT: Write between 205 and 230 spoken words "
-            "so the voiceover strictly exceeds 64 seconds. Return ONLY valid JSON with keys: "
+            "gripping cliffhanger or thought-provoking question. IMPORTANT: Write between 215 and 240 spoken words "
+            "so the voiceover strictly exceeds 65 seconds. Return ONLY valid JSON with keys: "
             "'title' (catchy 60-char caption) and 'script' (clean spoken narration only, no stage directions)."
         ),
     },
@@ -45,7 +47,7 @@ NICHES = {
             "press TikTok video targeting UK/USA audiences. Start in the first 3 seconds with a bold outcome "
             "prediction question ('Will a 100-ton hydraulic press vaporize solid tungsten or shatter the steel plate?'). "
             "Describe the extreme pressure, sound, and suspense leading to the final payoff, and ask viewers to comment "
-            "their guess. IMPORTANT: Write between 200 and 225 spoken words so the voiceover strictly exceeds 64 seconds. "
+            "their guess. IMPORTANT: Write between 210 and 235 spoken words so the voiceover strictly exceeds 65 seconds. "
             "Return ONLY valid JSON with keys: 'title' (catchy 60-char caption) and 'script' (clean spoken narration only)."
         ),
     },
@@ -62,7 +64,7 @@ def generate_script(niche_cfg):
             )
             data = json.loads(res.text)
             words = data["script"].split()
-            if len(words) < 190:
+            if len(words) < 200:
                 data["script"] += (
                     " Looking back at everything that happened that night, I still cannot believe how quickly "
                     "one small secret unraveled years of trust. Everyone involved had a completely different version "
@@ -166,13 +168,13 @@ def fetch_pixabay_clips(queries, needed_duration):
                         f.write(chunk)
 
             vf = (
-                "scale=720:1280:force_original_aspect_ratio=increase,"
-                "crop=720:1280,hflip,setpts=0.95*PTS,"
+                "scale=1080:1920:force_original_aspect_ratio=increase,"
+                "crop=1080:1920,hflip,setpts=0.95*PTS,"
                 "eq=contrast=1.06:saturation=1.12,fps=30"
             )
             cmd = [
                 ffmpeg_exe, "-y", "-ss", "1", "-t", "2.6", "-i", raw_p,
-                "-an", "-vf", vf, "-c:v", "libx264", "-preset", "veryfast", "-crf", "24", cut_p
+                "-an", "-vf", vf, "-c:v", "libx264", "-preset", "veryfast", "-crf", "23", cut_p
             ]
             subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
             if os.path.exists(cut_p) and os.path.getsize(cut_p) > 10000:
@@ -207,7 +209,7 @@ def render_final_video(cut_files, audio_path, srt_path, final_out):
     cmd = [
         ffmpeg_exe, "-y", "-i", merged_bg, "-i", audio_path,
         "-vf", f"subtitles={srt_path}:force_style='{subtitle_style}'",
-        "-c:v", "libx264", "-preset", "veryfast", "-crf", "24",
+        "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
         "-c:a", "aac", "-b:a", "128k", "-shortest", final_out
     ]
     res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
@@ -215,41 +217,45 @@ def render_final_video(cut_files, audio_path, srt_path, final_out):
         raise Exception(f"FFmpeg render error: {res.stderr[-800:]}")
 
 
-def host_video_publicly(video_path):
-    # Upload to Catbox.moe (free direct .mp4 URL up to 200MB, bypasses Vercel 4.5MB body limit)
-    try:
-        with open(video_path, "rb") as vf:
-            r = requests.post(
-                "https://catbox.moe/user/api.php",
-                data={"reqtype": "fileupload"},
-                files={"fileToUpload": ("tiktok_video.mp4", vf, "video/mp4")},
-                timeout=120,
-            )
-        if r.status_code == 200 and r.text.strip().startswith("https://"):
-            url = r.text.strip()
-            print("Hosted video URL (Catbox):", url)
-            return url
-    except Exception as e:
-        print("Catbox upload fallback triggered:", e)
+def host_video_on_github_release(video_path):
+    gh_headers = {
+        "Authorization": f"Bearer {GITHUB_TOKEN}",
+        "Accept": "application/vnd.github+json",
+    }
+    tag = "media-staging"
+    rel_url = f"https://api.github.com/repos/{GITHUB_REPOSITORY}/releases/tags/{tag}"
+    rel_res = requests.get(rel_url, headers=gh_headers, timeout=30)
 
-    # Fallback: tmpfiles.org direct download link
+    if rel_res.status_code == 200:
+        release = rel_res.json()
+    else:
+        create_res = requests.post(
+            f"https://api.github.com/repos/{GITHUB_REPOSITORY}/releases",
+            headers=gh_headers,
+            json={"tag_name": tag, "name": "Temporary Media Staging", "draft": False, "prerelease": True},
+            timeout=30,
+        )
+        create_res.raise_for_status()
+        release = create_res.json()
+
+    upload_url = release["upload_url"].split("{")[0]
+    asset_name = f"tiktok_{int(time.time())}.mp4"
+
     with open(video_path, "rb") as vf:
-        r = requests.post(
-            "https://tmpfiles.org/api/v1/upload",
-            files={"file": ("tiktok_video.mp4", vf, "video/mp4")},
+        up_res = requests.post(
+            f"{upload_url}?name={asset_name}",
+            headers={**gh_headers, "Content-Type": "video/mp4"},
+            data=vf,
             timeout=120,
         )
-    if r.status_code == 200:
-        raw_url = r.json()["data"]["url"]
-        direct_url = raw_url.replace("tmpfiles.org/", "tmpfiles.org/dl/")
-        print("Hosted video URL (tmpfiles):", direct_url)
-        return direct_url
-
-    raise Exception(f"Failed to host video publicly: {r.status_code} {r.text}")
+    up_res.raise_for_status()
+    download_url = up_res.json()["browser_download_url"]
+    print("Hosted direct GitHub Release MP4 URL:", download_url)
+    return download_url
 
 
 def upload_to_zernio(video_path, account_id, caption_text):
-    media_url = host_video_publicly(video_path)
+    media_url = host_video_on_github_release(video_path)
     headers = {
         "Authorization": f"Bearer {ZERNIO_API_KEY}",
         "Content-Type": "application/json",
@@ -257,7 +263,18 @@ def upload_to_zernio(video_path, account_id, caption_text):
     payload = {
         "content": caption_text,
         "mediaItems": [{"type": "video", "url": media_url}],
-        "platforms": [{"platform": "tiktok", "accountId": account_id}],
+        "platforms": [
+            {
+                "platform": "tiktok",
+                "accountId": account_id,
+                "platformSpecificData": {
+                    "privacyLevel": "PUBLIC_TO_EVERYONE",
+                    "allowComment": True,
+                    "allowDuet": True,
+                    "allowStitch": True,
+                },
+            }
+        ],
         "publishNow": True,
     }
     post_res = requests.post(
@@ -266,9 +283,11 @@ def upload_to_zernio(video_path, account_id, caption_text):
         json=payload,
         timeout=60,
     )
-    if post_res.status_code not in (200, 201):
-        raise Exception(f"Zernio post publish error ({post_res.status_code}): {post_res.text}")
-    print("Successfully published to TikTok via Zernio:", post_res.json())
+    resp_json = post_res.json()
+    platforms_info = resp_json.get("post", {}).get("platforms", [])
+    if post_res.status_code not in (200, 201) or resp_json.get("post", {}).get("status") == "failed":
+        raise Exception(f"Zernio TikTok publish failed ({post_res.status_code}): {json.dumps(platforms_info)}")
+    print("Successfully published to TikTok via Zernio:", json.dumps(platforms_info))
 
 
 def run_for_account(niche_key):
