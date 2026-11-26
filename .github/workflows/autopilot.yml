@@ -1,0 +1,43 @@
+name: Phase 2 - UK/USA TikTok 24/7 Autopilot
+
+on:
+  workflow_dispatch:
+    inputs:
+      account:
+        description: 'Account to run (acc1 or acc2)'
+        required: true
+        default: 'acc1'
+  schedule:
+    # Account 1 (Relationship Drama): 14:00 & 20:00 UTC (UK/USA Peak)
+    - cron: '0 14,20 * * *'
+    # Account 2 (ASMR Destruction): 16:00 & 22:00 UTC (UK/USA Peak)
+    - cron: '0 16,22 * * *'
+
+jobs:
+  produce-and-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests edge-tts imageio-ffmpeg google-genai
+
+      - name: Run TikTok Autopilot
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
+          ZERNIO_API_KEY: ${{ secrets.ZERNIO_API_KEY }}
+          ZERNIO_ACC1_ID: ${{ secrets.ZERNIO_ACC1_ID }}
+          ZERNIO_ACC2_ID: ${{ secrets.ZERNIO_ACC2_ID }}
+          TARGET_ACCOUNT: ${{ github.event.inputs.account || ((github.event.schedule == '0 16,22 * * *') && 'acc2' || 'acc1') }}
+        run: python tiktok_autopilot.py
