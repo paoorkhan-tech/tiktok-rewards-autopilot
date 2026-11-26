@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import time
 import random
@@ -24,7 +25,7 @@ NICHES = {
     "acc1": {
         "account_id": ZERNIO_ACC1_ID,
         "name": "Relationship & Psychology Drama",
-        "voice": "en-US-AndrewNeural",
+        "voices": ["en-US-AndrewNeural", "en-US-GuyNeural", "en-US-ChristopherNeural", "en-GB-RyanNeural"],
         "video_queries": ["satisfying slime", "soap cutting", "abstract colorful liquid", "sand art"],
         "hashtags": ["#storytime", "#redditstories", "#relationshipadvice", "#drama"],
         "prompt": (
@@ -39,7 +40,7 @@ NICHES = {
     "acc2": {
         "account_id": ZERNIO_ACC2_ID,
         "name": "ASMR & Experimental Destruction",
-        "voice": "en-GB-RyanNeural",
+        "voices": ["en-GB-RyanNeural", "en-US-AndrewNeural", "en-US-GuyNeural", "en-GB-ThomasNeural"],
         "video_queries": ["hydraulic press", "crushing glass", "slow motion explosion", "metal melting"],
         "hashtags": ["#satisfying", "#asmr", "#hydraulicpress", "#oddlysatisfying"],
         "prompt": (
@@ -86,17 +87,38 @@ def format_srt_time(seconds):
     return f"{h:02d}:{m:02d}:{s:02d},{ms:03d}"
 
 
-async def create_voice_and_subtitles(script_text, voice, audio_path, srt_path):
-    communicate = edge_tts.Communicate(script_text, voice, rate="+0%", boundary="WordBoundary")
+async def create_voice_and_subtitles(script_text, voices, audio_path, srt_path):
+    clean_text = re.sub(r"[^\w\s.,!?'\"-]", " ", script_text)
+    clean_text = re.sub(r"\s+", " ", clean_text).strip()
+
     word_events = []
-    with open(audio_path, "wb") as f:
-        async for chunk in communicate.stream():
-            if chunk["type"] == "audio":
-                f.write(chunk["data"])
-            elif chunk["type"] in ("WordBoundary", "SentenceBoundary"):
-                start_s = chunk["offset"] / 10_000_000
-                dur_s = chunk["duration"] / 10_000_000
-                word_events.append((start_s, start_s + dur_s, chunk["text"]))
+    success = False
+
+    for voice in voices:
+        for attempt in range(2):
+            try:
+                word_events = []
+                communicate = edge_tts.Communicate(clean_text, voice, rate="+0%", boundary="WordBoundary")
+                with open(audio_path, "wb") as f:
+                    async for chunk in communicate.stream():
+                        if chunk["type"] == "audio":
+                            f.write(chunk["data"])
+                        elif chunk["type"] in ("WordBoundary", "SentenceBoundary"):
+                            start_s = chunk["offset"] / 10_000_000
+                            dur_s = chunk["duration"] / 10_000_000
+                            word_events.append((start_s, start_s + dur_s, chunk["text"]))
+                if os.path.exists(audio_path) and os.path.getsize(audio_path) > 5000:
+                    print(f"Voiceover generated using {voice}")
+                    success = True
+                    break
+            except Exception as e:
+                print(f"TTS {voice} attempt {attempt + 1} failed: {e}")
+                await asyncio.sleep(2)
+        if success:
+            break
+
+    if not success:
+        raise Exception("All Edge TTS voices failed to return audio.")
 
     srt_lines = []
     idx = 1
@@ -109,7 +131,7 @@ async def create_voice_and_subtitles(script_text, voice, audio_path, srt_path):
             srt_lines.append(f"{idx}\n{format_srt_time(start_t)} --> {format_srt_time(end_t)}\n{phrase}\n")
             idx += 1
     else:
-        words = script_text.split()
+        words = clean_text.split()
         step = 0.35
         for i in range(0, len(words), 3):
             start_t = (i / 3) * (step * 3)
@@ -302,7 +324,7 @@ def run_for_account(niche_key):
     srt_path = f"{niche_key}_subs.srt"
     final_video = f"{niche_key}_final.mp4"
 
-    asyncio.run(create_voice_and_subtitles(script_text, cfg["voice"], audio_path, srt_path))
+    asyncio.run(create_voice_and_subtitles(script_text, cfg["voices"], audio_path, srt_path))
     dur = get_audio_duration(audio_path)
     print(f"Generated voiceover duration: {dur:.1f}s")
 
