@@ -35,11 +35,11 @@ NICHES = {
     },
     "acc2": {
         "account_id": ZERNIO_ACC2_ID,
-        "name": "Urdu Deep Life Reality & Regret (Organic Mentor Voice + 2s Fast Cuts + Sad Piano)",
+        "name": "Urdu Deep Life Reality & Regret (Fast Natural Mentor Voice + 2s Cuts + Sad Piano)",
         "mode": "deep_life_urdu_30s",
-        # Native South Asian deep male voices: zero Arabic mispronunciation, 100% organic pronunciation
         "voices": ["hi-IN-MadhurNeural", "ur-PK-AsadNeural", "hi-IN-PrabhatNeural"],
-        "tts_rate": "-7%",
+        # Natural conversational speed (+4%) with deep resonant mentor pitch (-6Hz)
+        "tts_rate": "+4%",
         "tts_pitch": "-6Hz",
         "hashtags": ["#urdupoetry", "#deeplines", "#lifereality", "#emotional", "#pakistan", "#urduquotes"],
     },
@@ -138,26 +138,26 @@ def generate_acc2_deep_life_urdu():
     ]
     chosen_topic = random.choice(topics)
     prompt_text = (
-        f"You are a wise, compassionate South Asian elder/mentor speaking directly to young people watching TikTok "
+        f"You are a wise, warm South Asian elder/mentor speaking directly and naturally to young people on TikTok "
         f"(Pakistan, India, Nepal, Bangladesh).\n"
         f"Topic theme: {chosen_topic}\n\n"
-        "Write a deeply touching, heart-wrenching 30-second STANDALONE life advice / reality check in simple, conversational Urdu.\n"
-        "Break the narration into 6 to 7 short, dramatic, emotional lines (each line 8-12 words) with natural commas (,) "
-        "inside sentences so the narrator breathes and pauses like a real human elder advising youth with love and pain.\n"
+        "Write a deeply touching, engaging 30-second STANDALONE life advice / reality check in simple, conversational Urdu.\n"
+        "Break the narration into 8 to 9 flowing, natural sentences (total 85 to 98 spoken words) so the speaker talks "
+        "in a smooth, energetic, natural human flow without long boring pauses.\n"
         "CRITICAL STRUCTURE (NO Part 1 / Part 2 — complete standalone 30s video):\n"
-        "- Lines 1-2 (0-10s MASSIVE HOOK): Start immediately with two hard-hitting, undeniable truths addressing the viewer "
-        "('Beta' / 'Mere dost' / 'Tum') so they freeze and think 'Yes, he is speaking the absolute truth!'\n"
-        "- Lines 3-5 (10-22s): Deep emotional reality about family, parents' silent sacrifice, or regret.\n"
-        "- Lines 6-7 (22-30s): A tear-jerking final lesson + a short emotional prompt asking viewers to comment.\n\n"
+        "- Lines 1-2 (0-8s MASSIVE HOOK): Start immediately with two hard-hitting, undeniable truths addressing the viewer "
+        "('Beta' / 'Mere dost' / 'Tum') so they stop scrolling instantly.\n"
+        "- Lines 3-6 (8-22s): Deep emotional reality about family, parents' silent sacrifice, or regret, delivered smoothly.\n"
+        "- Lines 7-9 (22-30s): A tear-jerking final lesson + a short emotional prompt asking viewers to comment.\n\n"
         "Return ONLY valid JSON with these exact keys:\n"
         "- 'title': Catchy Roman Urdu caption (max 55 chars)\n"
-        "- 'lines': Array of 6 to 7 objects, where each object has:\n"
-        "    - 'tts_phonetic': The exact Urdu line written in Devanagari script with proper nuktas (क़, ख़, ग़, ज़, फ़) and commas (,) for breathing pauses, so the South Asian TTS voice pronounces every single Urdu word with 100% organic native clarity and zero Arabic accent\n"
-        "    - 'roman': The exact same line in clean Roman Urdu (English alphabet) for on-screen captions\n"
-        "    - 'pause_after': Float seconds of dramatic silence after this line (use 0.65 after hook/climax, 0.45 after normal lines)\n"
+        "- 'lines': Array of 8 to 9 objects, where each object has:\n"
+        "    - 'tts_phonetic': The exact Urdu sentence written in Devanagari script with proper nuktas (क़, ख़, ग़, ज़, फ़) and minimal commas so the South Asian voice speaks smoothly and naturally\n"
+        "    - 'roman': The exact same sentence in clean Roman Urdu (English alphabet) for on-screen captions\n"
+        "    - 'pause_after': Float seconds of tiny natural breath pause after this sentence (strictly between 0.12 and 0.20)\n"
         "- 'hook_queries': Array of 2 English Pixabay video search queries matching lines 1-2 (0-10s) (e.g. ['sad man rain window', 'looking at phone dark'])\n"
-        "- 'mid_queries': Array of 2 English Pixabay video search queries matching lines 3-5 (10-20s) (e.g. ['father holding child', 'elderly father working'])\n"
-        "- 'end_queries': Array of 2 English Pixabay video search queries matching lines 6-7 (20-30s) (e.g. ['lonely sunset walking', 'crying emotional person'])"
+        "- 'mid_queries': Array of 2 English Pixabay video search queries matching lines 3-6 (10-20s) (e.g. ['father holding child', 'elderly father working'])\n"
+        "- 'end_queries': Array of 2 English Pixabay video search queries matching lines 7-9 (20-30s) (e.g. ['lonely sunset walking', 'crying emotional person'])"
     )
     return call_gemini_json(prompt_text)
 
@@ -182,7 +182,6 @@ def get_audio_duration(audio_path):
 
 
 async def synthesize_single_line(text, voices, out_mp3, rate, pitch):
-    # Preserve Devanagari (\u0900-\u097F), Urdu (\u0600-\u06FF), punctuation, and letters
     clean_tts = re.sub(r"[^\w\s.,!?'\"-\u0600-\u06FF\u0900-\u097F।]", " ", text)
     clean_tts = re.sub(r"\s+", " ", clean_tts).strip()
     for voice in voices:
@@ -198,8 +197,8 @@ async def synthesize_single_line(text, voices, out_mp3, rate, pitch):
     raise Exception(f"Failed to synthesize line: {clean_tts[:40]}")
 
 
-async def create_emotional_paused_voice_and_subs(lines_data, voices, audio_path, srt_path, rate="-7%", pitch="-6Hz"):
-    """Generates each emotional line with organic native South Asian pronunciation and dramatic human pauses."""
+async def create_emotional_paused_voice_and_subs(lines_data, voices, audio_path, srt_path, rate="+4%", pitch="-6Hz"):
+    """Generates flowing, natural South Asian mentor narration with tiny 0.15s breath pauses."""
     os.makedirs("temp_clips/tts_parts", exist_ok=True)
     concat_items = []
     srt_lines = []
@@ -209,14 +208,16 @@ async def create_emotional_paused_voice_and_subs(lines_data, voices, audio_path,
     for i, item in enumerate(lines_data):
         spoken_line = (item.get("tts_phonetic") or item.get("urdu") or "").strip()
         roman_line = item.get("roman", spoken_line).strip()
-        pause_sec = float(item.get("pause_after", 0.45))
+        # Keep pause strictly minimal (0.12s - 0.20s) for natural fast-flowing human speech
+        raw_pause = float(item.get("pause_after", 0.15))
+        pause_sec = min(0.20, max(0.12, raw_pause))
         if not spoken_line:
             continue
 
         line_mp3 = f"temp_clips/tts_parts/line_{i}.mp3"
         used_voice = await synthesize_single_line(spoken_line, voices, line_mp3, rate, pitch)
         line_dur = get_audio_duration(line_mp3)
-        print(f"Line {i + 1}/{len(lines_data)} ({used_voice}): {line_dur:.2f}s + {pause_sec:.2f}s pause")
+        print(f"Line {i + 1}/{len(lines_data)} ({used_voice}): {line_dur:.2f}s + {pause_sec:.2f}s breath")
 
         concat_items.append(line_mp3)
 
@@ -668,7 +669,7 @@ def run_for_account(niche_key):
     bgm_path = None
 
     if cfg.get("mode") == "deep_life_urdu_30s":
-        # Account 2: 30s Urdu Deep Life Reality with Organic South Asian Mentor Voice, Pauses, Sad Piano BGM & 2s Fast Cuts
+        # Account 2: 30s Urdu Deep Life Reality with Natural Flowing Mentor Voice, Minimal Breath Pauses, Sad Piano BGM & 2s Cuts
         data = generate_acc2_deep_life_urdu()
         lines_data = data.get("lines") or []
         tags = " ".join(cfg["hashtags"])
@@ -680,12 +681,12 @@ def run_for_account(niche_key):
                 voices=cfg["voices"],
                 audio_path=audio_path,
                 srt_path=srt_path,
-                rate=cfg.get("tts_rate", "-7%"),
+                rate=cfg.get("tts_rate", "+4%"),
                 pitch=cfg.get("tts_pitch", "-6Hz"),
             )
         )
         dur = get_audio_duration(audio_path)
-        print(f"Generated Organic Mentor Urdu voiceover with pauses: {dur:.1f}s")
+        print(f"Generated Flowing Mentor Urdu voiceover: {dur:.1f}s")
 
         bgm_path = fetch_emotional_bgm()
 
