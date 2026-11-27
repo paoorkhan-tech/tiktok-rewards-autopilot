@@ -256,8 +256,8 @@ async def create_fast_realistic_voice_and_subs(lines_data, voices, audio_path, s
         f.write("\n".join(srt_lines))
 
 
-async def create_voice_and_subtitles(script_text, voices, audio_path, srt_path, rate="+4%", pitch="+0Hz"):
-    clean_text = re.sub(r"[^\w\s.,!?'\"-]", " ", script_text)
+async def create_voice_and_subtitles(tts_text, voices, audio_path, srt_path, rate="+4%", pitch="+0Hz"):
+    clean_text = re.sub(r"[^\w\s.,!?'\"-]", " ", tts_text)
     clean_text = re.sub(r"\s+", " ", clean_text).strip()
 
     word_events = []
@@ -514,7 +514,6 @@ def build_fast_2s_story_cuts(hook_queries, mid_queries, end_queries, total_dur):
 
 
 def build_micro_cuts(clip_urls, needed_duration, prefix="cut", clip_len=2.6):
-    """Fixed: Uses source caching, stream_loop safety, and max_attempts cap so it NEVER infinite-loops."""
     os.makedirs("temp_clips", exist_ok=True)
     if not clip_urls:
         return []
