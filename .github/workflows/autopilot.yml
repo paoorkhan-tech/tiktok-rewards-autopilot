@@ -1,4 +1,4 @@
-name: Phase 2 - UK/USA TikTok 24/7 Autopilot & WhatsApp Report
+name: Phase 2 - Dual TikTok 24/7 Autopilot & WhatsApp Report
 
 on:
   workflow_dispatch:
@@ -6,9 +6,9 @@ on:
       task:
         description: 'Task to run (acc1, acc2, or whatsapp_report)'
         required: true
-        default: 'whatsapp_report'
+        default: 'acc2'
   schedule:
-    # Account 1 (@osmaneditsofficial - 10 Videos/Day = 5 Two-Part Stories):
+    # Account 1 (@osmaneditsofficial - UK/USA 10 Videos/Day = 5 Two-Part Stories):
     # 6:00 PM, 7:15 PM, 8:30 PM, 9:45 PM, 11:00 PM, 12:15 AM, 1:30 AM, 2:45 AM, 4:00 AM, 5:00 AM PKT
     - cron: '0 13 * * *'
     - cron: '15 14 * * *'
@@ -21,13 +21,13 @@ on:
     - cron: '0 23 * * *'
     - cron: '0 0 * * *'
 
-    # Account 2 (ASMR Hydraulic Press - 5 Standalone 30s Videos/Day):
-    # 6:10 PM, 8:40 PM, 11:10 PM, 1:40 AM, 4:10 AM PKT
-    - cron: '10 13 * * *'
-    - cron: '40 15 * * *'
+    # Account 2 (Urdu Deep Life Reality & Regret - South Asia Prime Time - 5 Videos/Day):
+    # 5:10 PM, 6:40 PM, 8:10 PM, 9:40 PM, 11:10 PM PKT (12:10, 13:40, 15:10, 16:40, 18:10 UTC)
+    - cron: '10 12 * * *'
+    - cron: '40 13 * * *'
+    - cron: '10 15 * * *'
+    - cron: '40 16 * * *'
     - cron: '10 18 * * *'
-    - cron: '40 20 * * *'
-    - cron: '10 23 * * *'
 
     # Daily WhatsApp Analytics Report at exactly 6:00 AM PKT (01:00 UTC)
     - cron: '0 1 * * *'
@@ -55,6 +55,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install requests edge-tts google-genai playwright
           playwright install chromium
+
       - name: Execute Task (Autopilot or WhatsApp Report)
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
