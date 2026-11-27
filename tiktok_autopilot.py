@@ -35,13 +35,13 @@ NICHES = {
     },
     "acc2": {
         "account_id": ZERNIO_ACC2_ID,
-        "name": "Urdu Deep Life Reality & Regret (Fast Natural Mentor Voice + 2s Cuts + Sad Piano)",
-        "mode": "deep_life_urdu_30s",
-        "voices": ["hi-IN-MadhurNeural", "ur-PK-AsadNeural", "hi-IN-PrabhatNeural"],
-        # Natural conversational speed (+4%) with deep resonant mentor pitch (-6Hz)
-        "tts_rate": "+4%",
-        "tts_pitch": "-6Hz",
-        "hashtags": ["#urdupoetry", "#deeplines", "#lifereality", "#emotional", "#pakistan", "#urduquotes"],
+        "name": "English Deep Life Reality & Regret (22yo Adam-Style Fast Realistic Voice + Guaranteed BGM + 2s Cuts)",
+        "mode": "deep_life_english_30s",
+        # Natural, realistic 22-23yo male voices (clean normal pitch, fast engaging delivery)
+        "voices": ["en-US-AndrewNeural", "en-US-BrianNeural", "en-CA-LiamNeural", "en-US-GuyNeural"],
+        "tts_rate": "+9%",
+        "tts_pitch": "+1Hz",
+        "hashtags": ["#lifereality", "#deepthoughts", "#regret", "#mindset", "#motivation", "#realitycheck"],
     },
 }
 
@@ -127,36 +127,34 @@ def generate_acc1_2part_script():
         return data, "Part 1"
 
 
-def generate_acc2_deep_life_urdu():
+def generate_acc2_deep_life_english():
     topics = [
-        "Maa baap ki khamosh qurbani aur waqt guzar jane ke baad aulad ka pachtawa",
-        "Jis shakhs ke message ko aaj hum ignore karte hain, ek din uski awaaz sunne ko taras jate hain",
-        "Paisa aur mobile ki duniya mein apne sabse qareebi rishton ko kho dene ka dard",
-        "Ek boorhe baap ki khamosh mehnat jo apni khwahishein maar kar bachon ke sapne poore karta hai",
-        "Waqt aur halaat badalne par jab apne hi ajnabi ban jate hain - zindagi ki karrwi haqeeqat",
-        "Duniya ko khush karte karte insaan khud ko aur apne maa baap ko bhool jata hai",
+        "The silent sacrifice of aging parents while we stay too busy staring at our phones",
+        "Ignoring the messages of the one person who truly loves you until their number goes silent forever",
+        "Chasing money and fake validation while slowly losing the people who actually care",
+        "A father hiding his own struggles and worn-out shoes just so his kids never feel less than anyone",
+        "The brutal truth of life: people only realize your value when you are no longer there",
+        "Thinking you still have plenty of time to say 'I love you'—until life proves you wrong",
     ]
     chosen_topic = random.choice(topics)
     prompt_text = (
-        f"You are a wise, warm South Asian elder/mentor speaking directly and naturally to young people on TikTok "
-        f"(Pakistan, India, Nepal, Bangladesh).\n"
+        f"You are a raw, honest, realistic 23-year-old storyteller talking directly to viewers on TikTok.\n"
         f"Topic theme: {chosen_topic}\n\n"
-        "Write a deeply touching, engaging 30-second STANDALONE life advice / reality check in simple, conversational Urdu.\n"
-        "Break the narration into 8 to 9 flowing, natural sentences (total 85 to 98 spoken words) so the speaker talks "
-        "in a smooth, energetic, natural human flow without long boring pauses.\n"
+        "Write a high-retention, deeply emotional 30-second STANDALONE life reality & regret story in natural conversational English.\n"
+        "Break the narration into 8 to 9 punchy, flowing sentences (total 92 to 105 spoken words) so the voice sounds "
+        "100% human, fast-paced, and real—never robotic or overly poetic.\n"
         "CRITICAL STRUCTURE (NO Part 1 / Part 2 — complete standalone 30s video):\n"
-        "- Lines 1-2 (0-8s MASSIVE HOOK): Start immediately with two hard-hitting, undeniable truths addressing the viewer "
-        "('Beta' / 'Mere dost' / 'Tum') so they stop scrolling instantly.\n"
-        "- Lines 3-6 (8-22s): Deep emotional reality about family, parents' silent sacrifice, or regret, delivered smoothly.\n"
-        "- Lines 7-9 (22-30s): A tear-jerking final lesson + a short emotional prompt asking viewers to comment.\n\n"
+        "- Lines 1-2 (0-6s HEAVY STOPPING HOOK): Open immediately with an ultra-strong, uncomfortable truth that hits the "
+        "viewer in the chest in the first 3 seconds so they physically cannot scroll past.\n"
+        "- Lines 3-6 (6-22s): Raw, relatable storytelling about family, quiet sacrifice, and the regret of taking people for granted.\n"
+        "- Lines 7-9 (22-30s): A gut-punch final realization + a short, genuine prompt asking viewers to comment or text someone they love.\n\n"
         "Return ONLY valid JSON with these exact keys:\n"
-        "- 'title': Catchy Roman Urdu caption (max 55 chars)\n"
+        "- 'title': Catchy, emotional TikTok caption (max 55 chars)\n"
         "- 'lines': Array of 8 to 9 objects, where each object has:\n"
-        "    - 'tts_phonetic': The exact Urdu sentence written in Devanagari script with proper nuktas (क़, ख़, ग़, ज़, फ़) and minimal commas so the South Asian voice speaks smoothly and naturally\n"
-        "    - 'roman': The exact same sentence in clean Roman Urdu (English alphabet) for on-screen captions\n"
-        "    - 'pause_after': Float seconds of tiny natural breath pause after this sentence (strictly between 0.12 and 0.20)\n"
+        "    - 'text': Clean, natural spoken English sentence (no emojis, no hashtags)\n"
+        "    - 'pause_after': Float seconds of tiny natural breath pause after this sentence (strictly between 0.08 and 0.16)\n"
         "- 'hook_queries': Array of 2 English Pixabay video search queries matching lines 1-2 (0-10s) (e.g. ['sad man rain window', 'looking at phone dark'])\n"
-        "- 'mid_queries': Array of 2 English Pixabay video search queries matching lines 3-6 (10-20s) (e.g. ['father holding child', 'elderly father working'])\n"
+        "- 'mid_queries': Array of 2 English Pixabay video search queries matching lines 3-6 (10-20s) (e.g. ['father holding child', 'elderly man working'])\n"
         "- 'end_queries': Array of 2 English Pixabay video search queries matching lines 7-9 (20-30s) (e.g. ['lonely sunset walking', 'crying emotional person'])"
     )
     return call_gemini_json(prompt_text)
@@ -182,7 +180,7 @@ def get_audio_duration(audio_path):
 
 
 async def synthesize_single_line(text, voices, out_mp3, rate, pitch):
-    clean_tts = re.sub(r"[^\w\s.,!?'\"-\u0600-\u06FF\u0900-\u097F।]", " ", text)
+    clean_tts = re.sub(r"[^\w\s.,!?'\"-]", " ", text)
     clean_tts = re.sub(r"\s+", " ", clean_tts).strip()
     for voice in voices:
         for attempt in range(2):
@@ -197,8 +195,8 @@ async def synthesize_single_line(text, voices, out_mp3, rate, pitch):
     raise Exception(f"Failed to synthesize line: {clean_tts[:40]}")
 
 
-async def create_emotional_paused_voice_and_subs(lines_data, voices, audio_path, srt_path, rate="+4%", pitch="-6Hz"):
-    """Generates flowing, natural South Asian mentor narration with tiny 0.15s breath pauses."""
+async def create_fast_realistic_voice_and_subs(lines_data, voices, audio_path, srt_path, rate="+9%", pitch="+1Hz"):
+    """Generates fast, natural 22-23yo Adam-style English narration with micro breath pauses and tight subtitles."""
     os.makedirs("temp_clips/tts_parts", exist_ok=True)
     concat_items = []
     srt_lines = []
@@ -206,11 +204,9 @@ async def create_emotional_paused_voice_and_subs(lines_data, voices, audio_path,
     sub_idx = 1
 
     for i, item in enumerate(lines_data):
-        spoken_line = (item.get("tts_phonetic") or item.get("urdu") or "").strip()
-        roman_line = item.get("roman", spoken_line).strip()
-        # Keep pause strictly minimal (0.12s - 0.20s) for natural fast-flowing human speech
-        raw_pause = float(item.get("pause_after", 0.15))
-        pause_sec = min(0.20, max(0.12, raw_pause))
+        spoken_line = (item.get("text") or "").strip()
+        raw_pause = float(item.get("pause_after", 0.12))
+        pause_sec = min(0.16, max(0.08, raw_pause))
         if not spoken_line:
             continue
 
@@ -221,8 +217,8 @@ async def create_emotional_paused_voice_and_subs(lines_data, voices, audio_path,
 
         concat_items.append(line_mp3)
 
-        clean_roman = re.sub(r"[^\w\s.,!?'\"-]", " ", roman_line)
-        words = re.sub(r"\s+", " ", clean_roman).strip().split()
+        clean_sub = re.sub(r"[^\w\s.,!?'\"-]", " ", spoken_line)
+        words = re.sub(r"\s+", " ", clean_sub).strip().split()
         if words:
             chunk_size = 3
             num_chunks = max(1, (len(words) + chunk_size - 1) // chunk_size)
@@ -236,7 +232,7 @@ async def create_emotional_paused_voice_and_subs(lines_data, voices, audio_path,
 
         current_time += line_dur
 
-        if i < len(lines_data) - 1 and pause_sec > 0.05:
+        if i < len(lines_data) - 1 and pause_sec > 0.04:
             sil_mp3 = f"temp_clips/tts_parts/sil_{i}.mp3"
             subprocess.run(
                 [
@@ -321,37 +317,54 @@ async def create_voice_and_subtitles(script_text, voices, audio_path, srt_path, 
         f.write("\n".join(srt_lines))
 
 
-def fetch_emotional_bgm(bgm_out="temp_clips/sad_bgm.mp3"):
-    """Fetches a soft, emotional piano background track that enhances the voice without overpowering it."""
+def fetch_guaranteed_emotional_bgm(bgm_out="temp_clips/sad_bgm.mp3"):
+    """Guarantees emotional background music on EVERY video (multiple mirrors + synthesized warm ambient pad fallback)."""
     os.makedirs("temp_clips", exist_ok=True)
     bgm_urls = [
         "https://upload.wikimedia.org/wikipedia/commons/e/eb/Beethoven_Moonlight_1st_movement.ogg",
         "https://upload.wikimedia.org/wikipedia/commons/4/4e/Chopin_-_Nocturne_op.9_No.2_E_Flat_Major.ogg",
         "https://upload.wikimedia.org/wikipedia/commons/c/c4/Gymnopedie_No_1.ogg",
+        "https://upload.wikimedia.org/wikipedia/commons/b/be/Clair_de_lune_%28Claude_Debussy%29_Suite_bergamasque.ogg",
+        "https://upload.wikimedia.org/wikipedia/commons/3/34/Prelude_in_E_minor%2C_Op._28%2C_No._4_%28Chopin%29.ogg",
     ]
     random.shuffle(bgm_urls)
-    headers = {"User-Agent": "Mozilla/5.0 (compatible; StoryAutopilot/1.0)"}
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
 
     for url in bgm_urls:
         raw_ogg = "temp_clips/raw_bgm.ogg"
         try:
             r = requests.get(url, headers=headers, timeout=25)
-            if r.status_code == 200 and len(r.content) > 50000:
+            if r.status_code == 200 and len(r.content) > 40000:
                 with open(raw_ogg, "wb") as f:
                     f.write(r.content)
                 subprocess.run(
-                    [ffmpeg_exe, "-y", "-ss", "12", "-i", raw_ogg, "-t", "45", "-c:a", "libmp3lame", "-b:a", "128k", bgm_out],
+                    [ffmpeg_exe, "-y", "-ss", "10", "-i", raw_ogg, "-t", "45", "-c:a", "libmp3lame", "-b:a", "128k", bgm_out],
                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True
                 )
                 if os.path.exists(bgm_out) and os.path.getsize(bgm_out) > 20000:
-                    print(f"Loaded emotional background music: {url.split('/')[-1]}")
+                    print(f"Loaded emotional piano BGM: {url.split('/')[-1]}")
                     return bgm_out
         except Exception as e:
-            print(f"BGM fetch skip ({url}): {e}")
+            print(f"BGM mirror skip ({url}): {e}")
         finally:
             if os.path.exists(raw_ogg):
                 os.remove(raw_ogg)
-    return None
+
+    # 100% Failsafe: Generate a warm, melancholic minor ambient pad locally via FFmpeg so BGM NEVER fails
+    print("Generating failsafe melancholic ambient pad BGM via FFmpeg...")
+    synth_expr = (
+        "aevalsrc=0.25*sin(2*PI*110*t)+0.20*sin(2*PI*130.81*t)+0.20*sin(2*PI*164.81*t)+0.15*sin(2*PI*220*t)"
+        ":s=44100:d=45"
+    )
+    subprocess.run(
+        [
+            ffmpeg_exe, "-y", "-f", "lavfi", "-i", synth_expr,
+            "-af", "lowpass=f=450,aecho=0.8:0.88:60:0.4",
+            "-c:a", "libmp3lame", "-b:a", "128k", bgm_out
+        ],
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True
+    )
+    return bgm_out
 
 
 def generate_ai_intro_clips(ai_scenes, count=3):
@@ -554,9 +567,10 @@ def render_final_video(cut_files, audio_path, srt_path, final_out, bgm_path=None
     )
 
     if bgm_path and os.path.exists(bgm_path):
+        # Clear 22yo Adam-style voice (1.35x) + noticeable emotional BGM (0.22x) on every video
         filter_complex = (
-            "[1:a]volume=1.40[voice];"
-            "[2:a]volume=0.16,afade=t=in:st=0:d=1.5[bgm];"
+            "[1:a]volume=1.35[voice];"
+            "[2:a]volume=0.22,afade=t=in:st=0:d=1.2[bgm];"
             "[voice][bgm]amix=inputs=2:duration=first:dropout_transition=2[aout]"
         )
         cmd = [
@@ -668,30 +682,30 @@ def run_for_account(niche_key):
     final_video = f"{niche_key}_final.mp4"
     bgm_path = None
 
-    if cfg.get("mode") == "deep_life_urdu_30s":
-        # Account 2: 30s Urdu Deep Life Reality with Natural Flowing Mentor Voice, Minimal Breath Pauses, Sad Piano BGM & 2s Cuts
-        data = generate_acc2_deep_life_urdu()
+    if cfg.get("mode") == "deep_life_english_30s":
+        # Account 2: 30s English Deep Life Reality & Regret with 22yo Adam-style Realistic Voice, Guaranteed BGM & 2s Cuts
+        data = generate_acc2_deep_life_english()
         lines_data = data.get("lines") or []
         tags = " ".join(cfg["hashtags"])
         caption = f"{data['title']} {tags}"
 
         asyncio.run(
-            create_emotional_paused_voice_and_subs(
+            create_fast_realistic_voice_and_subs(
                 lines_data=lines_data,
                 voices=cfg["voices"],
                 audio_path=audio_path,
                 srt_path=srt_path,
-                rate=cfg.get("tts_rate", "+4%"),
-                pitch=cfg.get("tts_pitch", "-6Hz"),
+                rate=cfg.get("tts_rate", "+9%"),
+                pitch=cfg.get("tts_pitch", "+1Hz"),
             )
         )
         dur = get_audio_duration(audio_path)
-        print(f"Generated Flowing Mentor Urdu voiceover: {dur:.1f}s")
+        print(f"Generated Realistic 22yo Adam-style English voiceover: {dur:.1f}s")
 
-        bgm_path = fetch_emotional_bgm()
+        bgm_path = fetch_guaranteed_emotional_bgm()
 
         hook_q = data.get("hook_queries") or ["sad man rain window", "looking at phone dark"]
-        mid_q = data.get("mid_queries") or ["father holding child", "elderly father working"]
+        mid_q = data.get("mid_queries") or ["father holding child", "elderly man working"]
         end_q = data.get("end_queries") or ["lonely sunset walking", "crying emotional person"]
         all_clips = build_fast_2s_story_cuts(hook_q, mid_q, end_q, total_dur=dur)
     else:
