@@ -28,18 +28,19 @@ NICHES = {
         "account_id": ZERNIO_ACC1_ID,
         "name": "Relationship & Psychology Drama (30s 2-Part Curiosity Series)",
         "mode": "story_2part_30s",
-        "voices": ["en-US-AndrewNeural", "en-US-GuyNeural", "en-US-ChristopherNeural", "en-GB-RyanNeural"],
+        "voices": ["en-US-AndrewMultilingualNeural", "en-US-AndrewNeural", "en-US-ChristopherNeural", "en-GB-RyanNeural"],
         "tts_rate": "+4%",
         "tts_pitch": "+0Hz",
         "hashtags": ["#storytime", "#redditstories", "#psychology", "#plottwist"],
     },
     "acc2": {
         "account_id": ZERNIO_ACC2_ID,
-        "name": "Urdu Deep Life Reality & Regret (30s Emotional Hook + 3x10s Story Clips)",
+        "name": "Urdu Deep Life Reality & Regret (Adam Mentor Voice + 2s Fast Cuts + Sad Piano)",
         "mode": "deep_life_urdu_30s",
-        "voices": ["ur-PK-AsadNeural", "hi-IN-MadhurNeural"],
-        "tts_rate": "-10%",
-        "tts_pitch": "-6Hz",
+        # Deep, mature Adam-like multilingual voices that speak Urdu with heavy mentor emotion
+        "voices": ["en-US-AndrewMultilingualNeural", "en-US-BrianMultilingualNeural", "ur-PK-AsadNeural"],
+        "tts_rate": "-9%",
+        "tts_pitch": "-7Hz",
         "hashtags": ["#urdupoetry", "#deeplines", "#lifereality", "#emotional", "#pakistan", "#urduquotes"],
     },
 }
@@ -137,25 +138,26 @@ def generate_acc2_deep_life_urdu():
     ]
     chosen_topic = random.choice(topics)
     prompt_text = (
-        f"You are a viral South Asian (Pakistan, India, Nepal, Bangladesh) emotional storyteller.\n"
+        f"You are a wise, compassionate South Asian elder/mentor speaking directly to young people watching TikTok "
+        f"(Pakistan, India, Nepal, Bangladesh).\n"
         f"Topic theme: {chosen_topic}\n\n"
-        "Write a deeply touching, heart-wrenching 30-second STANDALONE story/reality check in simple, poetic Urdu "
-        "(written in Urdu script so Urdu TTS pronounces it naturally with deep emotion). "
-        "CRITICAL STRUCTURE (NO Part 1 / Part 2 — complete story in 30 seconds):\n"
-        "1. FIRST 5 SECONDS (STOPPING HOOK): Start immediately with a direct, shocking, emotional truth addressing the listener "
-        "('Aap' / 'Tum') that stops them from scrolling instantly.\n"
-        "2. MIDDLE (5-22s): Build deep emotional pain and reality about family, parents, love, or regret.\n"
-        "3. ENDING (22-30s): Deliver a powerful final punchline that brings tears to the eyes, plus a short emotional comment trigger "
-        "(e.g., asking them to write a prayer for their parents or tag/remember someone special).\n\n"
-        "IMPORTANT: Write strictly between 68 and 82 Urdu words so that when spoken slowly with a deep emotional voice, "
-        "it takes ~28-30 seconds.\n"
+        "Write a deeply touching, heart-wrenching 30-second STANDALONE life advice / reality check in simple, poetic Urdu.\n"
+        "Break the narration into 6 to 7 short, dramatic, emotional lines (each line 8-12 words) so the speaker pauses "
+        "like a wise elder advising youth with deep care and emotion.\n"
+        "CRITICAL STRUCTURE (NO Part 1 / Part 2 — complete standalone 30s video):\n"
+        "- Lines 1-2 (0-10s MASSIVE HOOK): Start immediately with two hard-hitting, undeniable truths addressing the viewer "
+        "('Beta' / 'Mere dost' / 'Aap') so they freeze and think 'Yes, he is speaking the absolute truth!'\n"
+        "- Lines 3-5 (10-22s): Deep emotional reality about family, parents' silent sacrifice, or regret.\n"
+        "- Lines 6-7 (22-30s): A tear-jerking final lesson + a short emotional prompt asking viewers to comment.\n\n"
         "Return ONLY valid JSON with these exact keys:\n"
-        "- 'title': Catchy Roman Urdu caption (max 55 chars, e.g. 'Waqt guzar gaya to sirf pachtawa bachega...')\n"
-        "- 'urdu_script': Clean Urdu script narration ONLY (no emojis, no headings, no English words) for natural Urdu TTS.\n"
-        "- 'roman_urdu_captions': Exact same script transliterated cleanly into simple Roman Urdu (English alphabet) for on-screen subtitles.\n"
-        "- 'clip1_query': 2-3 word English Pixabay video search query matching seconds 0-10 (e.g. 'sad man rain window' or 'elderly father working').\n"
-        "- 'clip2_query': 2-3 word English Pixabay video search query matching seconds 10-20 (e.g. 'father holding child' or 'lonely walking night').\n"
-        "- 'clip3_query': 2-3 word English Pixabay video search query matching seconds 20-30 (e.g. 'crying emotional person' or 'sunset lonely bench')."
+        "- 'title': Catchy Roman Urdu caption (max 55 chars)\n"
+        "- 'lines': Array of 6 to 7 objects, where each object has:\n"
+        "    - 'urdu': The line written in clean Urdu script (no emojis) for natural pronunciation\n"
+        "    - 'roman': The exact same line in clean Roman Urdu (English alphabet) for on-screen captions\n"
+        "    - 'pause_after': Float seconds of dramatic silence after this line (use 0.65 after hook/climax, 0.45 after normal lines)\n"
+        "- 'hook_queries': Array of 2 English Pixabay video search queries matching lines 1-2 (0-10s) (e.g. ['sad man rain window', 'looking at phone dark'])\n"
+        "- 'mid_queries': Array of 2 English Pixabay video search queries matching lines 3-5 (10-20s) (e.g. ['father holding child', 'elderly father working'])\n"
+        "- 'end_queries': Array of 2 English Pixabay video search queries matching lines 6-7 (20-30s) (e.g. ['lonely sunset walking', 'crying emotional person'])"
     )
     return call_gemini_json(prompt_text)
 
@@ -168,12 +170,99 @@ def format_srt_time(seconds):
     return f"{h:02d}:{m:02d}:{s:02d},{ms:03d}"
 
 
-async def create_voice_and_subtitles(
-    tts_text, voices, audio_path, srt_path, rate="+4%", pitch="+0Hz", display_caption_text=None
-):
-    # Keep Urdu Unicode characters as well as English letters/numbers for TTS
-    clean_tts = re.sub(r"[^\w\s.,!?'\"-\u0600-\u06FF\u0900-\u097F]", " ", tts_text)
+def get_audio_duration(audio_path):
+    cmd = [ffmpeg_exe, "-i", audio_path]
+    res = subprocess.run(cmd, stderr=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+    for line in res.stderr.splitlines():
+        if "Duration:" in line:
+            t_str = line.split("Duration:")[1].split(",")[0].strip()
+            h, m, s = t_str.split(":")
+            return int(h) * 3600 + int(m) * 60 + float(s)
+    return 30.0
+
+
+async def synthesize_single_line(text, voices, out_mp3, rate, pitch):
+    clean_tts = re.sub(r"[^\w\s.,!?'\"-\u0600-\u06FF\u0900-\u097F]", " ", text)
     clean_tts = re.sub(r"\s+", " ", clean_tts).strip()
+    for voice in voices:
+        for attempt in range(2):
+            try:
+                communicate = edge_tts.Communicate(clean_tts, voice, rate=rate, pitch=pitch)
+                await communicate.save(out_mp3)
+                if os.path.exists(out_mp3) and os.path.getsize(out_mp3) > 1500:
+                    return voice
+            except Exception as e:
+                print(f"Line TTS ({voice}) attempt {attempt + 1} error: {e}")
+                await asyncio.sleep(1.5)
+    raise Exception(f"Failed to synthesize line: {clean_tts[:40]}")
+
+
+async def create_emotional_paused_voice_and_subs(lines_data, voices, audio_path, srt_path, rate="-9%", pitch="-7Hz"):
+    """Generates each emotional line separately with Adam-style mentor tone and inserts real dramatic pauses."""
+    os.makedirs("temp_clips/tts_parts", exist_ok=True)
+    concat_items = []
+    srt_lines = []
+    current_time = 0.0
+    sub_idx = 1
+
+    for i, item in enumerate(lines_data):
+        urdu_line = item.get("urdu", "").strip()
+        roman_line = item.get("roman", urdu_line).strip()
+        pause_sec = float(item.get("pause_after", 0.45))
+        if not urdu_line:
+            continue
+
+        line_mp3 = f"temp_clips/tts_parts/line_{i}.mp3"
+        used_voice = await synthesize_single_line(urdu_line, voices, line_mp3, rate, pitch)
+        line_dur = get_audio_duration(line_mp3)
+        print(f"Line {i + 1}/{len(lines_data)} ({used_voice}): {line_dur:.2f}s + {pause_sec:.2f}s pause")
+
+        concat_items.append(line_mp3)
+
+        clean_roman = re.sub(r"[^\w\s.,!?'\"-]", " ", roman_line)
+        words = re.sub(r"\s+", " ", clean_roman).strip().split()
+        if words:
+            chunk_size = 3
+            num_chunks = max(1, (len(words) + chunk_size - 1) // chunk_size)
+            chunk_dur = line_dur / num_chunks
+            for c in range(0, len(words), chunk_size):
+                st = current_time + (c // chunk_size) * chunk_dur
+                et = current_time + min(line_dur, ((c // chunk_size) + 1) * chunk_dur)
+                phrase = " ".join(words[c : c + chunk_size]).upper()
+                srt_lines.append(f"{sub_idx}\n{format_srt_time(st)} --> {format_srt_time(et)}\n{phrase}\n")
+                sub_idx += 1
+
+        current_time += line_dur
+
+        if i < len(lines_data) - 1 and pause_sec > 0.05:
+            sil_mp3 = f"temp_clips/tts_parts/sil_{i}.mp3"
+            subprocess.run(
+                [
+                    ffmpeg_exe, "-y", "-f", "lavfi", "-i", "anullsrc=r=24000:cl=mono",
+                    "-t", f"{pause_sec:.2f}", "-c:a", "libmp3lame", "-b:a", "64k", sil_mp3
+                ],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True
+            )
+            concat_items.append(sil_mp3)
+            current_time += pause_sec
+
+    list_txt = "temp_clips/tts_parts/audio_list.txt"
+    with open(list_txt, "w") as f:
+        for p in concat_items:
+            f.write(f"file '{os.path.abspath(p)}'\n")
+
+    subprocess.run(
+        [ffmpeg_exe, "-y", "-f", "concat", "-safe", "0", "-i", list_txt, "-c:a", "libmp3lame", "-b:a", "128k", audio_path],
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True
+    )
+
+    with open(srt_path, "w", encoding="utf-8") as f:
+        f.write("\n".join(srt_lines))
+
+
+async def create_voice_and_subtitles(script_text, voices, audio_path, srt_path, rate="+4%", pitch="+0Hz"):
+    clean_text = re.sub(r"[^\w\s.,!?'\"-]", " ", script_text)
+    clean_text = re.sub(r"\s+", " ", clean_text).strip()
 
     word_events = []
     success = False
@@ -183,7 +272,7 @@ async def create_voice_and_subtitles(
             try:
                 word_events = []
                 communicate = edge_tts.Communicate(
-                    clean_tts, voice, rate=rate, pitch=pitch, boundary="WordBoundary"
+                    clean_text, voice, rate=rate, pitch=pitch, boundary="WordBoundary"
                 )
                 with open(audio_path, "wb") as f:
                     async for chunk in communicate.stream():
@@ -194,7 +283,7 @@ async def create_voice_and_subtitles(
                             dur_s = chunk["duration"] / 10_000_000
                             word_events.append((start_s, start_s + dur_s, chunk["text"]))
                 if os.path.exists(audio_path) and os.path.getsize(audio_path) > 4000:
-                    print(f"Voiceover generated using {voice} (rate={rate}, pitch={pitch})")
+                    print(f"Voiceover generated using {voice}")
                     success = True
                     break
             except Exception as e:
@@ -206,25 +295,9 @@ async def create_voice_and_subtitles(
     if not success:
         raise Exception("All Edge TTS voices failed to return audio.")
 
-    dur = get_audio_duration(audio_path)
     srt_lines = []
     idx = 1
-
-    # If Roman Urdu display text is provided for Urdu TTS, sync Roman Urdu words evenly across total audio duration
-    if display_caption_text:
-        clean_disp = re.sub(r"[^\w\s.,!?'\"-]", " ", display_caption_text)
-        disp_words = re.sub(r"\s+", " ", clean_disp).strip().split()
-        if disp_words:
-            chunk_size = 3
-            total_chunks = max(1, (len(disp_words) + chunk_size - 1) // chunk_size)
-            chunk_dur = dur / total_chunks
-            for i in range(0, len(disp_words), chunk_size):
-                start_t = (i // chunk_size) * chunk_dur
-                end_t = min(dur, start_t + chunk_dur)
-                phrase = " ".join(disp_words[i : i + chunk_size]).upper()
-                srt_lines.append(f"{idx}\n{format_srt_time(start_t)} --> {format_srt_time(end_t)}\n{phrase}\n")
-                idx += 1
-    elif word_events:
+    if word_events:
         for i in range(0, len(word_events), 3):
             group = word_events[i : i + 3]
             start_t = group[0][0]
@@ -233,11 +306,11 @@ async def create_voice_and_subtitles(
             srt_lines.append(f"{idx}\n{format_srt_time(start_t)} --> {format_srt_time(end_t)}\n{phrase}\n")
             idx += 1
     else:
-        words = clean_tts.split()
-        step = dur / max(1, len(words))
+        words = clean_text.split()
+        step = 0.32
         for i in range(0, len(words), 3):
-            start_t = i * step
-            end_t = min(dur, (i + 3) * step)
+            start_t = (i / 3) * (step * 3)
+            end_t = start_t + (step * 3)
             phrase = " ".join(words[i : i + 3]).upper()
             srt_lines.append(f"{idx}\n{format_srt_time(start_t)} --> {format_srt_time(end_t)}\n{phrase}\n")
             idx += 1
@@ -246,15 +319,37 @@ async def create_voice_and_subtitles(
         f.write("\n".join(srt_lines))
 
 
-def get_audio_duration(audio_path):
-    cmd = [ffmpeg_exe, "-i", audio_path]
-    res = subprocess.run(cmd, stderr=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
-    for line in res.stderr.splitlines():
-        if "Duration:" in line:
-            t_str = line.split("Duration:")[1].split(",")[0].strip()
-            h, m, s = t_str.split(":")
-            return int(h) * 3600 + int(m) * 60 + float(s)
-    return 30.0
+def fetch_emotional_bgm(bgm_out="temp_clips/sad_bgm.mp3"):
+    """Fetches a soft, emotional piano background track that enhances the voice without overpowering it."""
+    os.makedirs("temp_clips", exist_ok=True)
+    bgm_urls = [
+        "https://upload.wikimedia.org/wikipedia/commons/e/eb/Beethoven_Moonlight_1st_movement.ogg",
+        "https://upload.wikimedia.org/wikipedia/commons/4/4e/Chopin_-_Nocturne_op.9_No.2_E_Flat_Major.ogg",
+        "https://upload.wikimedia.org/wikipedia/commons/c/c4/Gymnopedie_No_1.ogg",
+    ]
+    random.shuffle(bgm_urls)
+    headers = {"User-Agent": "Mozilla/5.0 (compatible; StoryAutopilot/1.0)"}
+
+    for url in bgm_urls:
+        raw_ogg = "temp_clips/raw_bgm.ogg"
+        try:
+            r = requests.get(url, headers=headers, timeout=25)
+            if r.status_code == 200 and len(r.content) > 50000:
+                with open(raw_ogg, "wb") as f:
+                    f.write(r.content)
+                subprocess.run(
+                    [ffmpeg_exe, "-y", "-ss", "12", "-i", raw_ogg, "-t", "45", "-c:a", "libmp3lame", "-b:a", "128k", bgm_out],
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True
+                )
+                if os.path.exists(bgm_out) and os.path.getsize(bgm_out) > 20000:
+                    print(f"Loaded emotional background music: {url.split('/')[-1]}")
+                    return bgm_out
+        except Exception as e:
+            print(f"BGM fetch skip ({url}): {e}")
+        finally:
+            if os.path.exists(raw_ogg):
+                os.remove(raw_ogg)
+    return None
 
 
 def generate_ai_intro_clips(ai_scenes, count=3):
@@ -301,7 +396,7 @@ def search_pixabay_hits(queries, fallback_query="sad emotional rain"):
     for q in queries:
         r = requests.get(
             "https://pixabay.com/api/videos/",
-            params={"key": PIXABAY_API_KEY, "q": q, "per_page": 12},
+            params={"key": PIXABAY_API_KEY, "q": q, "per_page": 10},
             timeout=20,
         )
         if r.status_code == 200:
@@ -317,7 +412,7 @@ def search_pixabay_hits(queries, fallback_query="sad emotional rain"):
     if not hits_list:
         r = requests.get(
             "https://pixabay.com/api/videos/",
-            params={"key": PIXABAY_API_KEY, "q": fallback_query, "per_page": 12},
+            params={"key": PIXABAY_API_KEY, "q": fallback_query, "per_page": 10},
             timeout=20,
         )
         for hit in r.json().get("hits", []):
@@ -328,49 +423,77 @@ def search_pixabay_hits(queries, fallback_query="sad emotional rain"):
     return hits_list
 
 
-def build_three_10s_story_clips(scene_queries, total_dur):
-    """Downloads 3 distinct story-matched clips and processes each into ~10s dark cinematic emotional segments."""
+def build_fast_2s_story_cuts(hook_queries, mid_queries, end_queries, total_dur):
+    """Creates fast-paced 2.0-second visual cuts (15+ clips for 30s) matched to Hook, Middle, and Ending."""
     os.makedirs("temp_clips", exist_ok=True)
-    seg_len = max(10.0, (total_dur + 1.5) / 3.0)
+    clip_len = 2.0
+    total_cuts_needed = max(15, int((total_dur + 1.5) / clip_len))
+
+    hook_hits = search_pixabay_hits(hook_queries, fallback_query="sad man rain window")
+    mid_hits = search_pixabay_hits(mid_queries, fallback_query="father child emotional")
+    end_hits = search_pixabay_hits(end_queries, fallback_query="lonely sunset walking")
+
+    hook_urls = [h["url"] for h in hook_hits] or ["https://pixabay.com/api/videos/"]
+    mid_urls = [h["url"] for h in mid_hits] or hook_urls
+    end_urls = [h["url"] for h in end_hits] or mid_urls
+    random.shuffle(hook_urls)
+    random.shuffle(mid_urls)
+    random.shuffle(end_urls)
+
+    # Cache downloaded source videos so we don't re-download the same URL multiple times
+    downloaded_cache = {}
     cut_files = []
 
-    for idx, query in enumerate(scene_queries[:3]):
-        print(f"Fetching 10s Story Clip {idx + 1}/3 for query: '{query}'")
-        hits = search_pixabay_hits([query], fallback_query="sad person rain dark")
-        chosen = random.choice(hits[:6]) if hits else None
-        if not chosen:
+    for idx in range(total_cuts_needed):
+        progress = idx / max(1, total_cuts_needed)
+        if progress < 0.34:
+            pool = hook_urls
+        elif progress < 0.68:
+            pool = mid_urls
+        else:
+            pool = end_urls
+
+        url = pool[idx % len(pool)]
+        if url not in downloaded_cache:
+            src_p = f"temp_clips/src_pool_{len(downloaded_cache)}.mp4"
+            try:
+                with requests.get(url, stream=True, timeout=25) as resp:
+                    with open(src_p, "wb") as f:
+                        for chunk in resp.iter_content(chunk_size=65536):
+                            f.write(chunk)
+                if os.path.exists(src_p) and os.path.getsize(src_p) > 15000:
+                    downloaded_cache[url] = src_p
+            except Exception as e:
+                print(f"Source download skip: {e}")
+                continue
+
+        src_file = downloaded_cache.get(url)
+        if not src_file:
             continue
 
-        raw_p = f"temp_clips/raw_story10_{idx}.mp4"
-        cut_p = f"temp_clips/story10_{idx}.mp4"
+        cut_p = f"temp_clips/fast2s_{idx:02d}.mp4"
+        # Vary start timestamp so even if a source clip is reused, it shows a completely different moment
+        ss_offset = (idx % 4) * 2.0
+        # Dynamic subtle zoom & moody dark emotional grade on every 2-second clip
+        vf = (
+            "scale=1160:2060:force_original_aspect_ratio=increase,"
+            "crop=1080:1920:x='(iw-1080)/2 + 15*sin(t*1.2)':y='(ih-1920)/2',"
+            "eq=contrast=1.12:brightness=-0.04:saturation=0.88,"
+            "vignette=PI/4,fps=30"
+        )
+        cmd = [
+            ffmpeg_exe, "-y", "-ss", f"{ss_offset:.1f}", "-stream_loop", "-1", "-i", src_file,
+            "-t", f"{clip_len:.1f}", "-an", "-vf", vf,
+            "-c:v", "libx264", "-preset", "veryfast", "-crf", "23", cut_p
+        ]
         try:
-            with requests.get(chosen["url"], stream=True, timeout=30) as resp:
-                with open(raw_p, "wb") as f:
-                    for chunk in resp.iter_content(chunk_size=65536):
-                        f.write(chunk)
-
-            # Loop raw clip if shorter than 10s, apply slow-mo feel, dark moody emotional color grading, and vignette
-            vf = (
-                "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,"
-                "setpts=1.08*PTS,"
-                "eq=contrast=1.10:brightness=-0.04:saturation=0.88,"
-                "vignette=PI/4,fps=30"
-            )
-            cmd = [
-                ffmpeg_exe, "-y", "-stream_loop", "-1", "-i", raw_p,
-                "-t", f"{seg_len:.2f}", "-an", "-vf", vf,
-                "-c:v", "libx264", "-preset", "veryfast", "-crf", "23", cut_p
-            ]
             subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
-            if os.path.exists(cut_p) and os.path.getsize(cut_p) > 10000:
+            if os.path.exists(cut_p) and os.path.getsize(cut_p) > 8000:
                 cut_files.append(cut_p)
-                print(f"Prepared 10s emotional clip {idx + 1}/3 ({seg_len:.1f}s)")
         except Exception as e:
-            print(f"Story clip {idx + 1} error: {e}")
-        finally:
-            if os.path.exists(raw_p):
-                os.remove(raw_p)
+            print(f"2s cut {idx} skip: {e}")
 
+    print(f"Built {len(cut_files)} fast-paced 2.0-second story clips ({len(cut_files) * clip_len:.1f}s total)")
     return cut_files
 
 
@@ -414,7 +537,7 @@ def build_micro_cuts(clip_urls, needed_duration, prefix="cut", clip_len=2.6):
     return cut_files
 
 
-def render_final_video(cut_files, audio_path, srt_path, final_out):
+def render_final_video(cut_files, audio_path, srt_path, final_out, bgm_path=None):
     list_file = "temp_clips/concat.txt"
     with open(list_file, "w") as f:
         for cf in cut_files:
@@ -427,15 +550,33 @@ def render_final_video(cut_files, audio_path, srt_path, final_out):
     )
 
     subtitle_style = (
-        "FontName=DejaVu Sans,FontSize=20,PrimaryColour=&H00FFFFFF,"
+        "FontName=DejaVu Sans,FontSize=21,Bold=1,PrimaryColour=&H0000FFFF,"
         "OutlineColour=&H00000000,BorderStyle=1,Outline=2,Shadow=2,Alignment=10"
     )
-    cmd = [
-        ffmpeg_exe, "-y", "-i", merged_bg, "-i", audio_path,
-        "-vf", f"subtitles={srt_path}:force_style='{subtitle_style}'",
-        "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
-        "-c:a", "aac", "-b:a", "128k", "-shortest", final_out
-    ]
+
+    if bgm_path and os.path.exists(bgm_path):
+        # Clear Adam mentor voice (1.40x) + soft emotional piano BGM (0.16x) so both voice and music shine
+        filter_complex = (
+            "[1:a]volume=1.40[voice];"
+            "[2:a]volume=0.16,afade=t=in:st=0:d=1.5[bgm];"
+            "[voice][bgm]amix=inputs=2:duration=first:dropout_transition=2[aout]"
+        )
+        cmd = [
+            ffmpeg_exe, "-y", "-i", merged_bg, "-i", audio_path, "-stream_loop", "-1", "-i", bgm_path,
+            "-filter_complex", filter_complex,
+            "-vf", f"subtitles={srt_path}:force_style='{subtitle_style}'",
+            "-map", "0:v", "-map", "[aout]",
+            "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
+            "-c:a", "aac", "-b:a", "128k", "-shortest", final_out
+        ]
+    else:
+        cmd = [
+            ffmpeg_exe, "-y", "-i", merged_bg, "-i", audio_path,
+            "-vf", f"subtitles={srt_path}:force_style='{subtitle_style}'",
+            "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
+            "-c:a", "aac", "-b:a", "128k", "-shortest", final_out
+        ]
+
     res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     if res.returncode != 0:
         raise Exception(f"FFmpeg render error: {res.stderr[-800:]}")
@@ -527,35 +668,34 @@ def run_for_account(niche_key):
     audio_path = f"{niche_key}_voice.mp3"
     srt_path = f"{niche_key}_subs.srt"
     final_video = f"{niche_key}_final.mp4"
+    bgm_path = None
 
     if cfg.get("mode") == "deep_life_urdu_30s":
-        # Account 2: 30s Standalone Urdu Deep Life Reality & Regret with 3 x 10s Story-Matched Clips
+        # Account 2: 30s Urdu Deep Life Reality with Adam Elder/Mentor Voice, Pauses, Sad Piano BGM & 2s Fast Cuts
         data = generate_acc2_deep_life_urdu()
-        urdu_script = data["urdu_script"]
-        roman_captions = data.get("roman_urdu_captions", urdu_script)
+        lines_data = data.get("lines") or []
         tags = " ".join(cfg["hashtags"])
         caption = f"{data['title']} {tags}"
 
         asyncio.run(
-            create_voice_and_subtitles(
-                tts_text=urdu_script,
+            create_emotional_paused_voice_and_subs(
+                lines_data=lines_data,
                 voices=cfg["voices"],
                 audio_path=audio_path,
                 srt_path=srt_path,
-                rate=cfg.get("tts_rate", "-10%"),
-                pitch=cfg.get("tts_pitch", "-6Hz"),
-                display_caption_text=roman_captions,
+                rate=cfg.get("tts_rate", "-9%"),
+                pitch=cfg.get("tts_pitch", "-7Hz"),
             )
         )
         dur = get_audio_duration(audio_path)
-        print(f"Generated Deep Urdu voiceover duration: {dur:.1f}s")
+        print(f"Generated Adam Mentor Urdu voiceover with pauses: {dur:.1f}s")
 
-        scene_queries = [
-            data.get("clip1_query", "sad man rain window"),
-            data.get("clip2_query", "father holding child emotional"),
-            data.get("clip3_query", "lonely sunset walking"),
-        ]
-        all_clips = build_three_10s_story_clips(scene_queries, total_dur=dur)
+        bgm_path = fetch_emotional_bgm()
+
+        hook_q = data.get("hook_queries") or ["sad man rain window", "looking at phone dark"]
+        mid_q = data.get("mid_queries") or ["father holding child", "elderly father working"]
+        end_q = data.get("end_queries") or ["lonely sunset walking", "crying emotional person"]
+        all_clips = build_fast_2s_story_cuts(hook_q, mid_q, end_q, total_dur=dur)
     else:
         # Account 1 (Usman Edits): 30s 2-Part Curiosity Story (15s AI story intro + 15s mood-matched B-roll)
         data, part_label = generate_acc1_2part_script()
@@ -594,7 +734,7 @@ def run_for_account(niche_key):
         matched_broll_clips = build_micro_cuts(broll_urls, needed_duration=remaining_dur, prefix="storybroll", clip_len=2.6)
         all_clips = ai_intro_clips + matched_broll_clips
 
-    render_final_video(all_clips, audio_path, srt_path, final_video)
+    render_final_video(all_clips, audio_path, srt_path, final_video, bgm_path=bgm_path)
     upload_to_zernio(final_video, cfg["account_id"], caption)
 
 
