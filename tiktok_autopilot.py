@@ -29,15 +29,18 @@ NICHES = {
         "name": "Relationship & Psychology Drama (30s 2-Part Curiosity Series)",
         "mode": "story_2part_30s",
         "voices": ["en-US-AndrewNeural", "en-US-GuyNeural", "en-US-ChristopherNeural", "en-GB-RyanNeural"],
+        "tts_rate": "+4%",
+        "tts_pitch": "+0Hz",
         "hashtags": ["#storytime", "#redditstories", "#psychology", "#plottwist"],
     },
     "acc2": {
         "account_id": ZERNIO_ACC2_ID,
-        "name": "ASMR & Hydraulic Press Destruction (30s Exact Real Match)",
-        "mode": "real_matched_30s",
-        "voices": ["en-GB-RyanNeural", "en-US-AndrewNeural", "en-US-GuyNeural", "en-GB-ThomasNeural"],
-        "primary_queries": ["hydraulic press", "crushing object", "metal press", "glass crushing"],
-        "hashtags": ["#satisfying", "#asmr", "#hydraulicpress", "#oddlysatisfying"],
+        "name": "Urdu Deep Life Reality & Regret (30s Emotional Hook + 3x10s Story Clips)",
+        "mode": "deep_life_urdu_30s",
+        "voices": ["ur-PK-AsadNeural", "hi-IN-MadhurNeural"],
+        "tts_rate": "-10%",
+        "tts_pitch": "-6Hz",
+        "hashtags": ["#urdupoetry", "#deeplines", "#lifereality", "#emotional", "#pakistan", "#urduquotes"],
     },
 }
 
@@ -123,17 +126,36 @@ def generate_acc1_2part_script():
         return data, "Part 1"
 
 
-def generate_acc2_script(matched_tags):
+def generate_acc2_deep_life_urdu():
+    topics = [
+        "Maa baap ki khamosh qurbani aur waqt guzar jane ke baad aulad ka pachtawa",
+        "Jis shakhs ke message ko aaj hum ignore karte hain, ek din uski awaaz sunne ko taras jate hain",
+        "Paisa aur mobile ki duniya mein apne sabse qareebi rishton ko kho dene ka dard",
+        "Ek boorhe baap ki khamosh mehnat jo apni khwahishein maar kar bachon ke sapne poore karta hai",
+        "Waqt aur halaat badalne par jab apne hi ajnabi ban jate hain - zindagi ki karrwi haqeeqat",
+        "Duniya ko khush karte karte insaan khud ko aur apne maa baap ko bhool jata hai",
+    ]
+    chosen_topic = random.choice(topics)
     prompt_text = (
-        f"We have authentic, real hydraulic press / crushing video footage showing: '{matched_tags}'. "
-        "Write a high-retention 30-second standalone sensory commentary script for UK/USA TikTok viewers "
-        "that matches this EXACT real footage from second 1 to second 30. "
-        "Start in the first 3 seconds with a bold 99% vs 1% prediction hook ('99% of people think this object "
-        "will survive 150 tons—watch what happens at second 25!'). Describe the exact weight, density, and extreme "
-        "pressure building up on screen so every word matches the real footage. End with a viewer challenge: "
-        "'Comment the toughest object we should crush next—most liked comment gets tested tomorrow, follow to see!' "
-        "IMPORTANT: Write strictly between 95 and 112 spoken words so the voiceover is ~30 seconds. "
-        "Return ONLY valid JSON with keys: 'title' (catchy 60-char caption) and 'script' (clean spoken narration only)."
+        f"You are a viral South Asian (Pakistan, India, Nepal, Bangladesh) emotional storyteller.\n"
+        f"Topic theme: {chosen_topic}\n\n"
+        "Write a deeply touching, heart-wrenching 30-second STANDALONE story/reality check in simple, poetic Urdu "
+        "(written in Urdu script so Urdu TTS pronounces it naturally with deep emotion). "
+        "CRITICAL STRUCTURE (NO Part 1 / Part 2 — complete story in 30 seconds):\n"
+        "1. FIRST 5 SECONDS (STOPPING HOOK): Start immediately with a direct, shocking, emotional truth addressing the listener "
+        "('Aap' / 'Tum') that stops them from scrolling instantly.\n"
+        "2. MIDDLE (5-22s): Build deep emotional pain and reality about family, parents, love, or regret.\n"
+        "3. ENDING (22-30s): Deliver a powerful final punchline that brings tears to the eyes, plus a short emotional comment trigger "
+        "(e.g., asking them to write a prayer for their parents or tag/remember someone special).\n\n"
+        "IMPORTANT: Write strictly between 68 and 82 Urdu words so that when spoken slowly with a deep emotional voice, "
+        "it takes ~28-30 seconds.\n"
+        "Return ONLY valid JSON with these exact keys:\n"
+        "- 'title': Catchy Roman Urdu caption (max 55 chars, e.g. 'Waqt guzar gaya to sirf pachtawa bachega...')\n"
+        "- 'urdu_script': Clean Urdu script narration ONLY (no emojis, no headings, no English words) for natural Urdu TTS.\n"
+        "- 'roman_urdu_captions': Exact same script transliterated cleanly into simple Roman Urdu (English alphabet) for on-screen subtitles.\n"
+        "- 'clip1_query': 2-3 word English Pixabay video search query matching seconds 0-10 (e.g. 'sad man rain window' or 'elderly father working').\n"
+        "- 'clip2_query': 2-3 word English Pixabay video search query matching seconds 10-20 (e.g. 'father holding child' or 'lonely walking night').\n"
+        "- 'clip3_query': 2-3 word English Pixabay video search query matching seconds 20-30 (e.g. 'crying emotional person' or 'sunset lonely bench')."
     )
     return call_gemini_json(prompt_text)
 
@@ -146,9 +168,12 @@ def format_srt_time(seconds):
     return f"{h:02d}:{m:02d}:{s:02d},{ms:03d}"
 
 
-async def create_voice_and_subtitles(script_text, voices, audio_path, srt_path):
-    clean_text = re.sub(r"[^\w\s.,!?'\"-]", " ", script_text)
-    clean_text = re.sub(r"\s+", " ", clean_text).strip()
+async def create_voice_and_subtitles(
+    tts_text, voices, audio_path, srt_path, rate="+4%", pitch="+0Hz", display_caption_text=None
+):
+    # Keep Urdu Unicode characters as well as English letters/numbers for TTS
+    clean_tts = re.sub(r"[^\w\s.,!?'\"-\u0600-\u06FF\u0900-\u097F]", " ", tts_text)
+    clean_tts = re.sub(r"\s+", " ", clean_tts).strip()
 
     word_events = []
     success = False
@@ -157,7 +182,9 @@ async def create_voice_and_subtitles(script_text, voices, audio_path, srt_path):
         for attempt in range(2):
             try:
                 word_events = []
-                communicate = edge_tts.Communicate(clean_text, voice, rate="+4%", boundary="WordBoundary")
+                communicate = edge_tts.Communicate(
+                    clean_tts, voice, rate=rate, pitch=pitch, boundary="WordBoundary"
+                )
                 with open(audio_path, "wb") as f:
                     async for chunk in communicate.stream():
                         if chunk["type"] == "audio":
@@ -167,7 +194,7 @@ async def create_voice_and_subtitles(script_text, voices, audio_path, srt_path):
                             dur_s = chunk["duration"] / 10_000_000
                             word_events.append((start_s, start_s + dur_s, chunk["text"]))
                 if os.path.exists(audio_path) and os.path.getsize(audio_path) > 4000:
-                    print(f"Voiceover generated using {voice}")
+                    print(f"Voiceover generated using {voice} (rate={rate}, pitch={pitch})")
                     success = True
                     break
             except Exception as e:
@@ -179,9 +206,25 @@ async def create_voice_and_subtitles(script_text, voices, audio_path, srt_path):
     if not success:
         raise Exception("All Edge TTS voices failed to return audio.")
 
+    dur = get_audio_duration(audio_path)
     srt_lines = []
     idx = 1
-    if word_events:
+
+    # If Roman Urdu display text is provided for Urdu TTS, sync Roman Urdu words evenly across total audio duration
+    if display_caption_text:
+        clean_disp = re.sub(r"[^\w\s.,!?'\"-]", " ", display_caption_text)
+        disp_words = re.sub(r"\s+", " ", clean_disp).strip().split()
+        if disp_words:
+            chunk_size = 3
+            total_chunks = max(1, (len(disp_words) + chunk_size - 1) // chunk_size)
+            chunk_dur = dur / total_chunks
+            for i in range(0, len(disp_words), chunk_size):
+                start_t = (i // chunk_size) * chunk_dur
+                end_t = min(dur, start_t + chunk_dur)
+                phrase = " ".join(disp_words[i : i + chunk_size]).upper()
+                srt_lines.append(f"{idx}\n{format_srt_time(start_t)} --> {format_srt_time(end_t)}\n{phrase}\n")
+                idx += 1
+    elif word_events:
         for i in range(0, len(word_events), 3):
             group = word_events[i : i + 3]
             start_t = group[0][0]
@@ -190,11 +233,11 @@ async def create_voice_and_subtitles(script_text, voices, audio_path, srt_path):
             srt_lines.append(f"{idx}\n{format_srt_time(start_t)} --> {format_srt_time(end_t)}\n{phrase}\n")
             idx += 1
     else:
-        words = clean_text.split()
-        step = 0.32
+        words = clean_tts.split()
+        step = dur / max(1, len(words))
         for i in range(0, len(words), 3):
-            start_t = (i / 3) * (step * 3)
-            end_t = start_t + (step * 3)
+            start_t = i * step
+            end_t = min(dur, (i + 3) * step)
             phrase = " ".join(words[i : i + 3]).upper()
             srt_lines.append(f"{idx}\n{format_srt_time(start_t)} --> {format_srt_time(end_t)}\n{phrase}\n")
             idx += 1
@@ -253,12 +296,12 @@ def generate_ai_intro_clips(ai_scenes, count=3):
     return ai_cut_files
 
 
-def search_pixabay_hits(queries):
+def search_pixabay_hits(queries, fallback_query="sad emotional rain"):
     hits_list = []
     for q in queries:
         r = requests.get(
             "https://pixabay.com/api/videos/",
-            params={"key": PIXABAY_API_KEY, "q": q, "per_page": 15},
+            params={"key": PIXABAY_API_KEY, "q": q, "per_page": 12},
             timeout=20,
         )
         if r.status_code == 200:
@@ -274,15 +317,61 @@ def search_pixabay_hits(queries):
     if not hits_list:
         r = requests.get(
             "https://pixabay.com/api/videos/",
-            params={"key": PIXABAY_API_KEY, "q": "satisfying abstract", "per_page": 15},
+            params={"key": PIXABAY_API_KEY, "q": fallback_query, "per_page": 12},
             timeout=20,
         )
         for hit in r.json().get("hits", []):
             vids = hit.get("videos", {})
             medium = vids.get("medium") or vids.get("small")
             if medium and medium.get("url"):
-                hits_list.append({"url": medium["url"], "tags": hit.get("tags", "satisfying"), "duration": 10})
+                hits_list.append({"url": medium["url"], "tags": hit.get("tags", fallback_query), "duration": 10})
     return hits_list
+
+
+def build_three_10s_story_clips(scene_queries, total_dur):
+    """Downloads 3 distinct story-matched clips and processes each into ~10s dark cinematic emotional segments."""
+    os.makedirs("temp_clips", exist_ok=True)
+    seg_len = max(10.0, (total_dur + 1.5) / 3.0)
+    cut_files = []
+
+    for idx, query in enumerate(scene_queries[:3]):
+        print(f"Fetching 10s Story Clip {idx + 1}/3 for query: '{query}'")
+        hits = search_pixabay_hits([query], fallback_query="sad person rain dark")
+        chosen = random.choice(hits[:6]) if hits else None
+        if not chosen:
+            continue
+
+        raw_p = f"temp_clips/raw_story10_{idx}.mp4"
+        cut_p = f"temp_clips/story10_{idx}.mp4"
+        try:
+            with requests.get(chosen["url"], stream=True, timeout=30) as resp:
+                with open(raw_p, "wb") as f:
+                    for chunk in resp.iter_content(chunk_size=65536):
+                        f.write(chunk)
+
+            # Loop raw clip if shorter than 10s, apply slow-mo feel, dark moody emotional color grading, and vignette
+            vf = (
+                "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,"
+                "setpts=1.08*PTS,"
+                "eq=contrast=1.10:brightness=-0.04:saturation=0.88,"
+                "vignette=PI/4,fps=30"
+            )
+            cmd = [
+                ffmpeg_exe, "-y", "-stream_loop", "-1", "-i", raw_p,
+                "-t", f"{seg_len:.2f}", "-an", "-vf", vf,
+                "-c:v", "libx264", "-preset", "veryfast", "-crf", "23", cut_p
+            ]
+            subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+            if os.path.exists(cut_p) and os.path.getsize(cut_p) > 10000:
+                cut_files.append(cut_p)
+                print(f"Prepared 10s emotional clip {idx + 1}/3 ({seg_len:.1f}s)")
+        except Exception as e:
+            print(f"Story clip {idx + 1} error: {e}")
+        finally:
+            if os.path.exists(raw_p):
+                os.remove(raw_p)
+
+    return cut_files
 
 
 def build_micro_cuts(clip_urls, needed_duration, prefix="cut", clip_len=2.6):
@@ -338,7 +427,7 @@ def render_final_video(cut_files, audio_path, srt_path, final_out):
     )
 
     subtitle_style = (
-        "FontName=DejaVu Sans,FontSize=19,PrimaryColour=&H0000FFFF,"
+        "FontName=DejaVu Sans,FontSize=20,PrimaryColour=&H00FFFFFF,"
         "OutlineColour=&H00000000,BorderStyle=1,Outline=2,Shadow=2,Alignment=10"
     )
     cmd = [
@@ -439,34 +528,51 @@ def run_for_account(niche_key):
     srt_path = f"{niche_key}_subs.srt"
     final_video = f"{niche_key}_final.mp4"
 
-    if cfg.get("mode") == "real_matched_30s":
-        # Account 2: 30s standalone video with 100% real matched hydraulic press footage
-        primary_hits = search_pixabay_hits(cfg["primary_queries"])
-        hero_hit = random.choice(primary_hits)
-        matched_tags = hero_hit["tags"]
-        print(f"Selected Real Hydraulic Press Footage Tags: '{matched_tags}'")
-
-        data = generate_acc2_script(matched_tags)
-        script_text = data["script"]
+    if cfg.get("mode") == "deep_life_urdu_30s":
+        # Account 2: 30s Standalone Urdu Deep Life Reality & Regret with 3 x 10s Story-Matched Clips
+        data = generate_acc2_deep_life_urdu()
+        urdu_script = data["urdu_script"]
+        roman_captions = data.get("roman_urdu_captions", urdu_script)
         tags = " ".join(cfg["hashtags"])
         caption = f"{data['title']} {tags}"
 
-        asyncio.run(create_voice_and_subtitles(script_text, cfg["voices"], audio_path, srt_path))
+        asyncio.run(
+            create_voice_and_subtitles(
+                tts_text=urdu_script,
+                voices=cfg["voices"],
+                audio_path=audio_path,
+                srt_path=srt_path,
+                rate=cfg.get("tts_rate", "-10%"),
+                pitch=cfg.get("tts_pitch", "-6Hz"),
+                display_caption_text=roman_captions,
+            )
+        )
         dur = get_audio_duration(audio_path)
-        print(f"Generated voiceover duration: {dur:.1f}s")
+        print(f"Generated Deep Urdu voiceover duration: {dur:.1f}s")
 
-        hero_urls = [hero_hit["url"]] + [
-            h["url"] for h in primary_hits if h["url"] != hero_hit["url"]
-        ][:3]
-        all_clips = build_micro_cuts(hero_urls, needed_duration=dur + 2.0, prefix="real30", clip_len=3.0)
+        scene_queries = [
+            data.get("clip1_query", "sad man rain window"),
+            data.get("clip2_query", "father holding child emotional"),
+            data.get("clip3_query", "lonely sunset walking"),
+        ]
+        all_clips = build_three_10s_story_clips(scene_queries, total_dur=dur)
     else:
-        # Account 1: 30s 2-Part Curiosity Story (15s AI story intro + 15s mood-matched B-roll)
+        # Account 1 (Usman Edits): 30s 2-Part Curiosity Story (15s AI story intro + 15s mood-matched B-roll)
         data, part_label = generate_acc1_2part_script()
         script_text = data["script"]
         tags = " ".join(cfg["hashtags"])
         caption = f"[{part_label}] {data['title']} {tags}"
 
-        asyncio.run(create_voice_and_subtitles(script_text, cfg["voices"], audio_path, srt_path))
+        asyncio.run(
+            create_voice_and_subtitles(
+                tts_text=script_text,
+                voices=cfg["voices"],
+                audio_path=audio_path,
+                srt_path=srt_path,
+                rate=cfg.get("tts_rate", "+4%"),
+                pitch=cfg.get("tts_pitch", "+0Hz"),
+            )
+        )
         dur = get_audio_duration(audio_path)
         print(f"Generated {part_label} voiceover duration: {dur:.1f}s")
 
