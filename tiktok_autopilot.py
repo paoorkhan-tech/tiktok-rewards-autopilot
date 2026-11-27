@@ -37,7 +37,6 @@ NICHES = {
         "account_id": ZERNIO_ACC2_ID,
         "name": "English Deep Life Reality & Regret (22yo Adam-Style Fast Realistic Voice + Guaranteed BGM + 2s Cuts)",
         "mode": "deep_life_english_30s",
-        # Natural, realistic 22-23yo male voices (clean normal pitch, fast engaging delivery)
         "voices": ["en-US-AndrewNeural", "en-US-BrianNeural", "en-CA-LiamNeural", "en-US-GuyNeural"],
         "tts_rate": "+9%",
         "tts_pitch": "+1Hz",
@@ -196,7 +195,6 @@ async def synthesize_single_line(text, voices, out_mp3, rate, pitch):
 
 
 async def create_fast_realistic_voice_and_subs(lines_data, voices, audio_path, srt_path, rate="+9%", pitch="+1Hz"):
-    """Generates fast, natural 22-23yo Adam-style English narration with micro breath pauses and tight subtitles."""
     os.makedirs("temp_clips/tts_parts", exist_ok=True)
     concat_items = []
     srt_lines = []
@@ -318,7 +316,6 @@ async def create_voice_and_subtitles(script_text, voices, audio_path, srt_path, 
 
 
 def fetch_guaranteed_emotional_bgm(bgm_out="temp_clips/sad_bgm.mp3"):
-    """Guarantees emotional background music on EVERY video (multiple mirrors + synthesized warm ambient pad fallback)."""
     os.makedirs("temp_clips", exist_ok=True)
     bgm_urls = [
         "https://upload.wikimedia.org/wikipedia/commons/e/eb/Beethoven_Moonlight_1st_movement.ogg",
@@ -350,7 +347,6 @@ def fetch_guaranteed_emotional_bgm(bgm_out="temp_clips/sad_bgm.mp3"):
             if os.path.exists(raw_ogg):
                 os.remove(raw_ogg)
 
-    # 100% Failsafe: Generate a warm, melancholic minor ambient pad locally via FFmpeg so BGM NEVER fails
     print("Generating failsafe melancholic ambient pad BGM via FFmpeg...")
     synth_expr = (
         "aevalsrc=0.25*sin(2*PI*110*t)+0.20*sin(2*PI*130.81*t)+0.20*sin(2*PI*164.81*t)+0.15*sin(2*PI*220*t)"
@@ -409,37 +405,40 @@ def generate_ai_intro_clips(ai_scenes, count=3):
 def search_pixabay_hits(queries, fallback_query="sad emotional rain"):
     hits_list = []
     for q in queries:
-        r = requests.get(
-            "https://pixabay.com/api/videos/",
-            params={"key": PIXABAY_API_KEY, "q": q, "per_page": 10},
-            timeout=20,
-        )
-        if r.status_code == 200:
-            for hit in r.json().get("hits", []):
-                vids = hit.get("videos", {})
-                medium = vids.get("medium") or vids.get("small") or vids.get("large")
-                if medium and medium.get("url"):
-                    hits_list.append({
-                        "url": medium["url"],
-                        "tags": hit.get("tags", q),
-                        "duration": hit.get("duration", 10),
-                    })
+        try:
+            r = requests.get(
+                "https://pixabay.com/api/videos/",
+                params={"key": PIXABAY_API_KEY, "q": q, "per_page": 10},
+                timeout=20,
+            )
+            if r.status_code == 200:
+                for hit in r.json().get("hits", []):
+                    vids = hit.get("videos", {})
+                    medium = vids.get("medium") or vids.get("small") or vids.get("large")
+                    if medium and medium.get("url"):
+                        hits_list.append({
+                            "url": medium["url"],
+                            "tags": hit.get("tags", q),
+                            "duration": hit.get("duration", 10),
+                        })
+        except Exception as e:
+            print(f"Pixabay query '{q}' error: {e}")
     if not hits_list:
         r = requests.get(
             "https://pixabay.com/api/videos/",
             params={"key": PIXABAY_API_KEY, "q": fallback_query, "per_page": 10},
             timeout=20,
         )
-        for hit in r.json().get("hits", []):
-            vids = hit.get("videos", {})
-            medium = vids.get("medium") or vids.get("small")
-            if medium and medium.get("url"):
-                hits_list.append({"url": medium["url"], "tags": hit.get("tags", fallback_query), "duration": 10})
+        if r.status_code == 200:
+            for hit in r.json().get("hits", []):
+                vids = hit.get("videos", {})
+                medium = vids.get("medium") or vids.get("small")
+                if medium and medium.get("url"):
+                    hits_list.append({"url": medium["url"], "tags": hit.get("tags", fallback_query), "duration": 10})
     return hits_list
 
 
 def build_fast_2s_story_cuts(hook_queries, mid_queries, end_queries, total_dur):
-    """Creates fast-paced 2.0-second visual cuts (15+ clips for 30s) matched to Hook, Middle, and Ending."""
     os.makedirs("temp_clips", exist_ok=True)
     clip_len = 2.0
     total_cuts_needed = max(15, int((total_dur + 1.5) / clip_len))
@@ -448,7 +447,7 @@ def build_fast_2s_story_cuts(hook_queries, mid_queries, end_queries, total_dur):
     mid_hits = search_pixabay_hits(mid_queries, fallback_query="father child emotional")
     end_hits = search_pixabay_hits(end_queries, fallback_query="lonely sunset walking")
 
-    hook_urls = [h["url"] for h in hook_hits] or ["https://pixabay.com/api/videos/"]
+    hook_urls = [h["url"] for h in hook_hits]
     mid_urls = [h["url"] for h in mid_hits] or hook_urls
     end_urls = [h["url"] for h in end_hits] or mid_urls
     random.shuffle(hook_urls)
@@ -457,6 +456,7 @@ def build_fast_2s_story_cuts(hook_queries, mid_queries, end_queries, total_dur):
 
     downloaded_cache = {}
     cut_files = []
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
 
     for idx in range(total_cuts_needed):
         progress = idx / max(1, total_cuts_needed)
@@ -467,15 +467,19 @@ def build_fast_2s_story_cuts(hook_queries, mid_queries, end_queries, total_dur):
         else:
             pool = end_urls
 
+        if not pool:
+            break
+
         url = pool[idx % len(pool)]
         if url not in downloaded_cache:
             src_p = f"temp_clips/src_pool_{len(downloaded_cache)}.mp4"
             try:
-                with requests.get(url, stream=True, timeout=25) as resp:
-                    with open(src_p, "wb") as f:
-                        for chunk in resp.iter_content(chunk_size=65536):
-                            f.write(chunk)
-                if os.path.exists(src_p) and os.path.getsize(src_p) > 15000:
+                with requests.get(url, headers=headers, stream=True, timeout=25) as resp:
+                    if resp.status_code == 200:
+                        with open(src_p, "wb") as f:
+                            for chunk in resp.iter_content(chunk_size=65536):
+                                f.write(chunk)
+                if os.path.exists(src_p) and os.path.getsize(src_p) > 20000:
                     downloaded_cache[url] = src_p
             except Exception as e:
                 print(f"Source download skip: {e}")
@@ -510,46 +514,65 @@ def build_fast_2s_story_cuts(hook_queries, mid_queries, end_queries, total_dur):
 
 
 def build_micro_cuts(clip_urls, needed_duration, prefix="cut", clip_len=2.6):
+    """Fixed: Uses source caching, stream_loop safety, and max_attempts cap so it NEVER infinite-loops."""
     os.makedirs("temp_clips", exist_ok=True)
+    if not clip_urls:
+        return []
+
     cut_files = []
+    downloaded_cache = {}
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
     total_acc = 0.0
     idx = 0
+    max_attempts = 25
 
-    while total_acc < needed_duration:
+    while total_acc < needed_duration and idx < max_attempts:
         url = clip_urls[idx % len(clip_urls)]
-        raw_p = f"temp_clips/raw_{prefix}_{idx}.mp4"
-        cut_p = f"temp_clips/{prefix}_{idx}.mp4"
-        try:
-            with requests.get(url, stream=True, timeout=25) as resp:
-                with open(raw_p, "wb") as f:
-                    for chunk in resp.iter_content(chunk_size=65536):
-                        f.write(chunk)
+        if url not in downloaded_cache:
+            raw_p = f"temp_clips/raw_{prefix}_{len(downloaded_cache)}.mp4"
+            try:
+                with requests.get(url, headers=headers, stream=True, timeout=25) as resp:
+                    if resp.status_code == 200:
+                        with open(raw_p, "wb") as f:
+                            for chunk in resp.iter_content(chunk_size=65536):
+                                f.write(chunk)
+                if os.path.exists(raw_p) and os.path.getsize(raw_p) > 20000:
+                    downloaded_cache[url] = raw_p
+            except Exception as e:
+                print(f"B-roll download skip: {e}")
 
-            ss_offset = (idx // max(1, len(clip_urls))) * 2
-            vf = (
-                "scale=1080:1920:force_original_aspect_ratio=increase,"
-                "crop=1080:1920,hflip,setpts=0.95*PTS,"
-                "eq=contrast=1.06:saturation=1.12,fps=30"
-            )
-            cmd = [
-                ffmpeg_exe, "-y", "-ss", str(ss_offset), "-t", str(clip_len), "-i", raw_p,
-                "-an", "-vf", vf, "-c:v", "libx264", "-preset", "veryfast", "-crf", "23", cut_p
-            ]
+        src_file = downloaded_cache.get(url)
+        if not src_file:
+            idx += 1
+            continue
+
+        cut_p = f"temp_clips/{prefix}_{idx}.mp4"
+        ss_offset = (idx // max(1, len(clip_urls))) * 2
+        vf = (
+            "scale=1080:1920:force_original_aspect_ratio=increase,"
+            "crop=1080:1920,hflip,setpts=0.95*PTS,"
+            "eq=contrast=1.06:saturation=1.12,fps=30"
+        )
+        cmd = [
+            ffmpeg_exe, "-y", "-stream_loop", "-1", "-ss", str(ss_offset), "-t", str(clip_len), "-i", src_file,
+            "-an", "-vf", vf, "-c:v", "libx264", "-preset", "veryfast", "-crf", "23", cut_p
+        ]
+        try:
             subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
-            if os.path.exists(cut_p) and os.path.getsize(cut_p) > 10000:
+            if os.path.exists(cut_p) and os.path.getsize(cut_p) > 8000:
                 cut_files.append(cut_p)
                 total_acc += (clip_len - 0.1)
         except Exception as e:
             print(f"Clip {prefix}_{idx} skip: {e}")
-        finally:
-            if os.path.exists(raw_p):
-                os.remove(raw_p)
         idx += 1
 
     return cut_files
 
 
 def render_final_video(cut_files, audio_path, srt_path, final_out, bgm_path=None):
+    if not cut_files:
+        raise Exception("No valid video clips were generated to render.")
+
     list_file = "temp_clips/concat.txt"
     with open(list_file, "w") as f:
         for cf in cut_files:
@@ -567,7 +590,6 @@ def render_final_video(cut_files, audio_path, srt_path, final_out, bgm_path=None
     )
 
     if bgm_path and os.path.exists(bgm_path):
-        # Clear 22yo Adam-style voice (1.35x) + noticeable emotional BGM (0.22x) on every video
         filter_complex = (
             "[1:a]volume=1.35[voice];"
             "[2:a]volume=0.22,afade=t=in:st=0:d=1.2[bgm];"
@@ -683,7 +705,6 @@ def run_for_account(niche_key):
     bgm_path = None
 
     if cfg.get("mode") == "deep_life_english_30s":
-        # Account 2: 30s English Deep Life Reality & Regret with 22yo Adam-style Realistic Voice, Guaranteed BGM & 2s Cuts
         data = generate_acc2_deep_life_english()
         lines_data = data.get("lines") or []
         tags = " ".join(cfg["hashtags"])
@@ -709,7 +730,6 @@ def run_for_account(niche_key):
         end_q = data.get("end_queries") or ["lonely sunset walking", "crying emotional person"]
         all_clips = build_fast_2s_story_cuts(hook_q, mid_q, end_q, total_dur=dur)
     else:
-        # Account 1 (Usman Edits): 30s 2-Part Curiosity Story (15s AI story intro + 15s mood-matched B-roll)
         data, part_label = generate_acc1_2part_script()
         script_text = data["script"]
         tags = " ".join(cfg["hashtags"])
