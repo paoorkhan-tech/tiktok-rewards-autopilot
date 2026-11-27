@@ -6,7 +6,7 @@ on:
       task:
         description: 'Task to run (acc1, acc2, or whatsapp_report)'
         required: true
-        default: 'acc2'
+        default: 'whatsapp_report'
   schedule:
     # Account 1 (@osmaneditsofficial - UK/USA 10 Videos/Day = 5 Two-Part Stories):
     # 6:00 PM, 7:15 PM, 8:30 PM, 9:45 PM, 11:00 PM, 12:15 AM, 1:30 AM, 2:45 AM, 4:00 AM, 5:00 AM PKT
@@ -22,15 +22,15 @@ on:
     - cron: '0 0 * * *'
 
     # Account 2 (English Deep Life Reality & Regret - UK/USA Prime Time - 5 Videos/Day):
-    # 6:10 PM, 8:40 PM, 11:10 PM, 1:40 AM, 4:10 AM PKT (13:10, 15:40, 18:10, 20:40, 23:10 UTC)
+    # 6:10 PM, 8:40 PM, 11:10 PM, 1:40 AM, 4:10 AM PKT
     - cron: '10 13 * * *'
     - cron: '40 15 * * *'
     - cron: '10 18 * * *'
     - cron: '40 20 * * *'
     - cron: '10 23 * * *'
 
-    # Daily WhatsApp Analytics Report at exactly 6:00 AM PKT (01:00 UTC)
-    - cron: '0 1 * * *'
+    # Daily WhatsApp Analytics Report triggered at 5:15 AM PKT (00:15 UTC) to arrive by ~6:00 AM PKT after GitHub queue buffer
+    - cron: '15 0 * * *'
 
 permissions:
   contents: write
@@ -48,6 +48,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+          cache: 'pip'
 
       - name: Install system FFmpeg and Python dependencies
         run: |
@@ -72,7 +73,7 @@ jobs:
         run: |
           TASK="${{ github.event.inputs.task }}"
           if [ -z "$TASK" ]; then
-            if [ "${{ github.event.schedule }}" = "0 1 * * *" ]; then
+            if [ "${{ github.event.schedule }}" = "15 0 * * *" ]; then
               TASK="whatsapp_report"
             elif [[ "${{ github.event.schedule }}" == 10\ * ]] || [[ "${{ github.event.schedule }}" == 40\ * ]]; then
               TASK="acc2"
